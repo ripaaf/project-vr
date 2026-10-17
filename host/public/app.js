@@ -599,7 +599,7 @@
     if (!d.connected) return { key: 'plug', title: 'Plug your Quest into this PC', text: 'Any USB-C cable. Only this once — afterwards it moves to Wi-Fi by itself.' };
     if (!d.appInstalled && d.installing) return { key: 'install', title: 'Installing the Quest app…', text: 'Putting Quest Mirror on the headset. It takes a few seconds — nothing to press.' };
     if (!d.appInstalled) return { key: 'install', title: 'Install the Quest app', text: 'It goes onto the headset by itself in a moment. In a hurry? Press the button.', action: { label: 'Install now', run: installApp } };
-    if (!s.pc.appLinked) return { key: 'link', title: 'Link the Quest app', text: 'In the headset: open Quest Mirror (Library → Unknown Sources) → “Show my PC here”, then look at the big code.', action: { label: 'Show the big code', run: async () => openLinkOverlay(true) } };
+    if (!s.pc.appLinked) return { key: 'link', title: 'Link the Quest app', text: 'In the headset open Quest Mirror (Library → Unknown Sources) and look at the big code. Linking happens by itself.', action: { label: 'Show the big code', run: async () => openLinkOverlay(true) } };
     return null;
   }
   async function installApp() {
@@ -718,7 +718,7 @@
     lo.classList.remove('leaving', 'success');
     $('#loDone').hidden = true;
     $('#loTitle').textContent = 'Look at this with your Quest';
-    $('#loText').innerHTML = 'In the headset open <b>Quest Mirror → Show my PC here</b>, then just look at this screen. Linking happens by itself.';
+    $('#loText').innerHTML = 'In the headset open <b>Quest Mirror</b> and look at this screen. Linking happens by itself.';
     lo.hidden = false;
     loText = '';
     renderLinkOverlay();
@@ -796,6 +796,8 @@
     api('api/control', { action: 'key', key })
       .then((r) => {
         if (r && r.volume != null) toast(r.muted ? 'Muted' : `Volume ${r.volume}/${r.max}`);
+        // Horizon OS ignores volume keys from outside; only the Quest app can change it.
+        else if (/^(volup|voldown|mute)$/.test(key)) toast('Volume needs the Quest Mirror app on the headset — waking it up, try again in a moment', true);
       })
       .catch(report);
   $$('[data-key]').forEach((b) => b.addEventListener('click', () => sendKey(b.dataset.key)));

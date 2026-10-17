@@ -65,6 +65,11 @@
             <layout android:defaultWidth="1600dp" android:defaultHeight="960dp" android:gravity="center" />
         </activity>
 
+        <receiver
+            android:name=".AgentStarter"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+
         <service
             android:name=".ControlService"
             android:exported="true"

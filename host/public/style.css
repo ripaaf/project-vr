@@ -144,7 +144,8 @@ body.idle .hud { opacity: 0; }
   border-bottom: var(--b) solid var(--ink);
   transition: transform .35s var(--ease), opacity .35s var(--ease);
 }
-body.idle .topbar { transform: translateY(-110%); opacity: 0; pointer-events: none; }
+/* hidden bar stays in place and clickable: a quick click on a button still works (and wakes the bar) */
+body.idle .topbar { transform: translateY(-6px); opacity: 0; }
 body.idle { cursor: none; }
 .brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 .brand svg { width: 26px; height: 26px; fill: var(--ink); }
@@ -361,7 +362,8 @@ input:disabled { opacity: .35; cursor: not-allowed; }
   opacity: 0; transform: translateY(12px); transition: opacity .2s, transform .25s var(--ease); pointer-events: none;
 }
 .toast::before { content: "> "; color: var(--signal); }
-.toast::after { content: "_"; animation: blink 1s steps(2) infinite; }
+.toast::after { content: "_"; }
+.toast.show::after { animation: blink 1s steps(2) infinite; }
 .toast.show { opacity: 1; transform: none; }
 .toast.bad { background: var(--signal); color: var(--on-signal); border-left-color: var(--ink); }
 .toast.bad::before { color: var(--ink); }

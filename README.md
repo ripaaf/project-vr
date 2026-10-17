@@ -69,12 +69,12 @@ Lalu dobel-klik **`start.bat`**, dan dashboard terbuka di browser. Android SDK +
 
 | Cara | Langkah |
 |---|---|
-| **◎ Lihat layar PC** (paling cepat) | App Quest → **Show my PC here**. Kamera headset langsung menyala dan memberi tahu PC. PC memunculkan **kode besar** di depan semua jendela. Cukup lihat layar PC dari jarak ±0,5–1,5 m, link terjadi sendiri (✓ *LINKED*). Kode besar juga bisa dibuka manual: kartu *NEXT STEP* → **Show the big code**, atau SETTINGS → *Link the Quest app*. |
+| **◎ Lihat layar PC** (paling cepat) | Buka app Quest (belum ter-link = langsung *STEP 1 // Link*). Kamera headset langsung menyala dan memberi tahu PC. PC memunculkan **kode besar** di depan semua jendela. Cukup lihat layar PC dari jarak ±0,5–1,5 m, link terjadi sendiri (✓ *LINKED*). Kode besar juga bisa dibuka manual: kartu *NEXT STEP* → **Show the big code**, atau SETTINGS → *Link the Quest app*. |
 | **Connect → Allow** | Di bawahnya (*OR TAP YOUR PC*) muncul PC yang ada di Wi-Fi yang sama. Tekan **Connect →**, lalu di PC muncul *INCOMING LINK REQUEST*. Cocokkan kode 4 digit, klik **Allow**. |
 | Kabel | Kalau Quest tercolok/terhubung ADB, app ter-link sendiri, kecuali kamu pernah **Unlink** (setelah itu link ulang harus disengaja). |
 | Kode 6 digit | Cadangan: ketik kode dari dashboard di app Quest. Bisa juga isi alamat PC manual. |
 
-Kode besar & kode 6 digit **sekali pakai**, langsung berganti setelah dipakai. Kamera hanya menyala selama app belum ter-link dan halaman *Show my PC here* terbuka; begitu ter-link, kamera langsung mati.
+Kode besar & kode 6 digit **sekali pakai**, langsung berganti setelah dipakai. Kamera hanya menyala selama app belum ter-link dan halaman *Link your PC* terbuka; begitu ter-link, kamera langsung mati.
 
 ### Putuskan (Unlink)
 Dari app Quest (**⚙ Settings → Connection → Unlink this PC**) atau dashboard (**SETTINGS → Link the Quest app → Unlink the Quest**). Putusnya beneran:

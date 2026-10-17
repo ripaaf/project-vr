@@ -240,6 +240,16 @@ async function autoInstall() {
 }
 setInterval(() => autoInstall().catch(() => {}), 4000);
 
+// The Quest app's agent (apps, icons, volume, panels) normally lives while the app is open. When it
+// isn't (after an update, a headset reboot, or the app was never opened), start it in the background.
+let lastAgentKick = 0;
+setInterval(() => {
+  if (!devices.current || !devices.info.appInstalled || installing || control.agent.connected) return;
+  if (Date.now() - lastAgentKick < 15000) return;
+  lastAgentKick = Date.now();
+  devices.shell(`am broadcast -n ${APP_ID}/.AgentStarter`).then(() => control.pingAgent()).catch(() => {});
+}, 3000);
+
 // Dashboards on this PC that someone can actually see (a tab in the background or a minimised
 // browser doesn't count); when there is none, a pairing request or a scanning Quest pops one up.
 let visibleDashboards = 0;
