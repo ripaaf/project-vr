@@ -1,0 +1,13 @@
+{
+  "name": "quest-mirror-host",
+  "version": "1.0.0",
+  "description": "Mirror and control a Meta Quest from any screen on your network",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,5 @@
+host/config.json
+quest-app/build/
+quest-app/*.keystore
+node_modules/
+windows-app/build/

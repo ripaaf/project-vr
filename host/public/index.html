@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en" data-theme="paper">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#E7E6E1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Quest Mirror</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="stage" class="stage">
+    <img id="video" class="video" alt="Quest view" draggable="false">
+
+    <!-- HUD frame over the picture -->
+    <div class="hud" aria-hidden="true">
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <span class="hud-read tl" id="hudTL">CH-01 // LEFT EYE</span>
+      <span class="hud-read bl" id="hudBL">—</span>
+      <span class="hud-read br" id="hudBR">00:00:00</span>
+    </div>
+
+    <!-- Waiting / setup screen -->
+    <section id="overlay" class="overlay">
+      <div class="ov-card cut">
+        <div class="ov-head">
+          <span class="hatch"></span>
+          <span class="mono" id="ovCode">SYS // LINK</span>
+          <span class="mono dim" id="ovClock"></span>
+        </div>
+        <div class="ov-body">
+          <svg class="ring" viewBox="0 0 100 100" id="ovRing" aria-hidden="true">
+            <circle cx="50" cy="50" r="44" class="r1"/><circle cx="50" cy="50" r="34" class="r2"/>
+            <circle cx="50" cy="50" r="4" class="r3"/>
+            <path d="M50 2v10M50 88v10M2 50h10M88 50h10" class="r4"/>
+          </svg>
+          <div class="ov-text">
+            <h1 id="overlayTitle">Connecting…</h1>
+            <p id="overlayText"></p>
+            <ol id="overlaySteps" class="steps" hidden></ol>
+            <button id="overlayAction" class="btn primary" hidden></button>
+          </div>
+        </div>
+        <div class="scanbar"><i></i></div>
+      </div>
+    </section>
+
+    <!-- Panel view: a flat, clickable copy of one 2D app window -->
+    <section id="panelView" class="panel-view" hidden>
+      <div class="panel-bar">
+        <button class="btn" data-close-panel>← Headset view</button>
+        <span class="mono label" id="panelTitle"></span>
+        <span class="mono dim panel-hint">CLICK = TAP · WHEEL = SCROLL · RIGHT-CLICK = HOLD</span>
+      </div>
+      <div class="panel-canvas">
+        <img id="panelImg" alt="App panel" draggable="false">
+        <div id="panelRipple" class="ripple"></div>
+      </div>
+      <form id="panelTextForm" class="panel-text">
+        <input id="panelText" type="text" placeholder="Type into the selected field of this app…" autocomplete="off">
+        <label class="check"><input type="checkbox" id="panelEnter" checked><span>ENTER</span></label>
+        <button class="btn primary">Send</button>
+      </form>
+    </section>
+  </main>
+
+  <header id="topbar" class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 3h9v3H6v20h6v3H3zM29 3h-9v3h6v20h-6v3h9z"/><rect x="11" y="12" width="4" height="8"/><rect x="17" y="12" width="4" height="8" class="sig"/></svg>
+      <span class="word">QUEST<b>/</b>MIRROR</span>
+    </div>
+    <span id="statusPill" class="pill"><i></i><span>…</span></span>
+    <span id="metaLine" class="mono dim meta"></span>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="btnSnap" title="Save screenshot" aria-label="Save screenshot">
+      <svg viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3v13H4zM12 9a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>
+    </button>
+    <button class="icon-btn" id="btnFull" title="Fullscreen (F)" aria-label="Fullscreen">
+      <svg viewBox="0 0 24 24"><path d="M3 9V3h6v2H5v4zm12-6h6v6h-2V5h-4zM3 15h2v4h4v2H3zm16 0h2v6h-6v-2h4z"/></svg>
+    </button>
+    <button class="icon-btn labeled" id="btnControl" title="Remote control" aria-label="Remote control">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 2 3 3H9zm0 12-3-3h6zM6 12l3-3v6zm12 0-3 3V9zm-6-1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>
+      <span class="lbl">REMOTE</span>
+    </button>
+    <button class="icon-btn labeled" id="btnSettings" title="Settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24"><path d="M3 6h11v2H3zm14-2h2v6h-2V8h-1V6h1zM3 16h5v2H3zm7-2h2v2h9v2h-9v2h-2zM13 11h8v2h-8zM6 9h2v2h1v2H8v2H6v-2H3v-2h3z"/></svg>
+      <span class="lbl">SETTINGS</span><i class="badge" id="setupBadge" hidden></i>
+    </button>
+  </header>
+
+  <!-- Remote control drawer -->
+  <aside id="controlDrawer" class="drawer cut" hidden>
+    <div class="drawer-head">
+      <div>
+        <span class="mono dim code">SYS/CTRL-01</span>
+        <h3>Remote control</h3>
+      </div>
+      <button class="icon-btn small" data-close aria-label="Close">✕</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="remote" class="active"><i>01</i>REMOTE</button>
+      <button role="tab" data-tab="apps"><i>02</i>APPS</button>
+      <button role="tab" data-tab="type"><i>03</i>TYPE</button>
+      <button role="tab" data-tab="panels"><i>04</i>PANELS</button>
+    </div>
+    <div id="controlBlocked" class="notice" hidden><span class="hatch"></span>Remote control is switched off on the headset. Turn on <b>Let viewers control</b> in the Quest Mirror app.</div>
+
+    <div class="tab-body" data-body="remote">
+      <div class="dial">
+        <svg class="dial-rings" viewBox="0 0 200 200" aria-hidden="true">
+          <circle cx="100" cy="100" r="98"/><circle cx="100" cy="100" r="74" class="dash"/>
+          <path d="M100 0v14M100 186v14M0 100h14M186 100h14"/>
+        </svg>
+        <button data-key="up" class="d-up" aria-label="Up">▲</button>
+        <button data-key="left" class="d-left" aria-label="Left">◀</button>
+        <button data-key="ok" class="d-ok">OK</button>
+        <button data-key="right" class="d-right" aria-label="Right">▶</button>
+        <button data-key="down" class="d-down" aria-label="Down">▼</button>
+      </div>
+      <div class="keys">
+        <button class="btn" data-key="back"><b>←</b>BACK</button>
+        <button class="btn" data-key="home"><b>⌂</b>HOME</button>
+        <button class="btn" data-key="playpause"><b>⏯</b>PLAY</button>
+        <button class="btn" data-key="voldown"><b>−</b>VOL</button>
+        <button class="btn" data-key="mute"><b>×</b>MUTE</button>
+        <button class="btn" data-key="volup"><b>+</b>VOL</button>
+        <button class="btn" data-key="prev"><b>⏮</b>PREV</button>
+        <button class="btn" data-key="wake"><b>☀</b>WAKE</button>
+        <button class="btn" data-key="next"><b>⏭</b>NEXT</button>
+      </div>
+      <p class="hint">Keyboard works too while this tab is open: arrows, Enter, Backspace = Back, Space = Play/Pause.</p>
+      <p class="hint">Inside VR games the headset only listens to real hands/controllers. These keys shine in menus and 2D apps.</p>
+    </div>
+
+    <div class="tab-body" data-body="apps" hidden>
+      <div class="row">
+        <input id="appFilter" type="search" placeholder="Search apps…" autocomplete="off">
+        <button class="icon-btn" id="appsReload" title="Reload list" aria-label="Reload list">↻</button>
+      </div>
+      <div id="appGrid" class="app-grid"></div>
+    </div>
+
+    <div class="tab-body" data-body="type" hidden>
+      <form id="typeForm" class="stack">
+        <h4 class="sect">Type on the headset</h4>
+        <textarea id="typeText" rows="3" placeholder="Goes into the text box that's selected on the Quest"></textarea>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="typeEnter"><span>PRESS ENTER AFTER</span></label>
+          <div class="spacer"></div>
+          <button class="btn primary">Send text</button>
+        </div>
+      </form>
+      <form id="urlForm" class="stack">
+        <h4 class="sect">Open a web page</h4>
+        <div class="row">
+          <input id="urlText" type="text" inputmode="url" placeholder="youtube.com" autocomplete="off">
+          <button class="btn primary">Open</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="tab-body" data-body="panels" hidden>
+      <p class="hint">Pick an open 2D app to see it flat and sharp — then click, scroll and type right inside it.</p>
+      <div id="panelList" class="list"></div>
+      <button class="btn" id="panelsReload">↻ Refresh</button>
+    </div>
+  </aside>
+
+  <!-- Settings drawer -->
+  <aside id="settingsDrawer" class="drawer cut" hidden>
+    <div class="drawer-head">
+      <div>
+        <span class="mono dim code">SYS/CONF-02</span>
+        <h3>Settings</h3>
+      </div>
+      <button class="icon-btn small" data-close aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-scroll">
+      <!-- One card that always answers "what now?" (PC only) -->
+      <section class="next owner-only" id="nextCard">
+        <div class="next-top">
+          <span class="mono dim" id="nextKicker">SETUP</span>
+          <span class="mono dim" id="nextCount"></span>
+        </div>
+        <div class="progress"><i id="nextBar"></i></div>
+        <h2 id="nextTitle">…</h2>
+        <p id="nextText"></p>
+        <div class="next-qr" id="nextQr" hidden></div>
+        <button class="btn primary" id="nextAction" hidden></button>
+        <ol class="mini-steps" id="nextSteps"></ol>
+      </section>
+
+      <div class="acc owner-only" id="accLink">
+        <button class="acc-head" type="button"><span>Link the Quest app</span><small id="accLinkSum"></small><b class="chev">▾</b></button>
+        <div class="acc-body"><div class="inner">
+          <p class="hint">In the headset open <b>Quest Mirror → Show my PC here → Scan the QR</b>. Or tap your PC there and press <b>Allow</b> here.</p>
+          <button class="btn primary" id="bigCodeBtn" type="button">◎ Show the big code</button>
+          <div class="pair-qr" id="pairQr"></div>
+          <div class="pair-code" id="pairCode">––––––</div>
+          <p class="mono dim small" id="pcStatus"></p>
+          <label class="switch"><input type="checkbox" id="pcShare"><i></i><span>Let the linked Quest show &amp; control this PC</span></label>
+          <button class="btn danger" id="unlinkQuest" hidden>Unlink the Quest</button>
+        </div></div>
+      </div>
+
+      <div class="acc" id="accShare">
+        <button class="acc-head" type="button"><span>Share link</span><small id="accShareSum"></small><b class="chev">▾</b></button>
+        <div class="acc-body"><div class="inner">
+          <div id="shareUrls" class="share"></div>
+        </div></div>
+      </div>
+
+      <div class="acc" id="accPicture">
+        <button class="acc-head" type="button"><span>Picture</span><small id="accPicSum"></small><b class="chev">▾</b></button>
+        <div class="acc-body"><div class="inner">
+        <div class="field">
+          <span>View</span>
+          <div class="seg wide" id="viewSeg2">
+            <button data-view="left">L-EYE</button>
+            <button data-view="right">R-EYE</button>
+            <button data-view="both">STEREO</button>
+          </div>
+        </div>
+        <div class="field">
+          <span>Quality</span>
+          <div class="seg wide" id="qualitySeg">
+            <button data-quality="low">LOW</button>
+            <button data-quality="medium">MEDIUM</button>
+            <button data-quality="high">HIGH</button>
+          </div>
+        </div>
+        <label class="field"><span>Zoom <b class="mono" id="zoomVal"></b></span><input type="range" id="zoom" min="1" max="2.5" step="0.05"></label>
+        <label class="field"><span>Move left / right</span><input type="range" id="offsetX" min="-0.25" max="0.25" step="0.01"></label>
+        <label class="field"><span>Move up / down</span><input type="range" id="offsetY" min="-0.25" max="0.25" step="0.01"></label>
+        <label class="field"><span>Max frame rate <b class="mono" id="fpsVal"></b></span><input type="range" id="maxFps" min="10" max="60" step="5"></label>
+        <label class="switch"><input type="checkbox" id="lensFix"><i></i><span>Straighten lens distortion</span></label>
+        <label class="switch"><input type="checkbox" id="paused"><i></i><span>Pause mirroring</span></label>
+        <button class="btn" id="resetView">Reset framing</button>
+        </div></div>
+      </div>
+
+      <div class="acc owner-only" id="accPrivacy">
+        <button class="acc-head" type="button"><span>Privacy</span><small id="accPrivSum"></small><b class="chev">▾</b></button>
+        <div class="acc-body"><div class="inner">
+          <label class="switch"><input type="checkbox" id="allowControl"><i></i><span>Let viewers control the headset</span></label>
+          <label class="switch"><input type="checkbox" id="keepAwake"><i></i><span>Keep awake when not worn</span></label>
+          <label class="field"><span>Viewer PIN (empty = none)</span><input type="text" id="pin" inputmode="numeric" maxlength="12" placeholder="e.g. 1234" autocomplete="off"></label>
+        </div></div>
+      </div>
+
+      <div class="acc owner-only" id="accConn">
+        <button class="acc-head" type="button"><span>Connection</span><small id="accConnSum"></small><b class="chev">▾</b></button>
+        <div class="acc-body"><div class="inner">
+          <ol id="linkSteps" class="checklist"></ol>
+          <div id="setupActions" class="stack"></div>
+          <label class="switch"><input type="checkbox" id="autoWireless"><i></i><span>Go wireless automatically when the cable is plugged in</span></label>
+          <label class="switch" id="autostartRow"><input type="checkbox" id="autostart"><i></i><span>Start Quest Mirror with Windows</span></label>
+        </div></div>
+      </div>
+
+      <div class="look">
+        <span class="mono dim">LOOK</span>
+        <div class="seg" id="themeSeg">
+          <button data-theme-pick="paper">☀ PAPER</button>
+          <button data-theme-pick="night">☾ NIGHT</button>
+        </div>
+      </div>
+      <p class="mono dim small center" id="versionLine"></p>
+    </div>
+  </aside>
+
+  <!-- Incoming pairing request (PC only) -->
+  <div id="pairGate" class="gate" hidden>
+    <div class="gate-card cut">
+      <div class="hazard"></div>
+      <span class="mono dim">INCOMING LINK REQUEST</span>
+      <h2 id="pairDevice">Quest</h2>
+      <p>wants to show and control this PC. Allow only if the headset shows the same code:</p>
+      <div class="pair-code big" id="pairCheck">0000</div>
+      <div class="row">
+        <button class="btn" id="pairDeny">Deny</button>
+        <button class="btn primary" id="pairAllow">Allow</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pinGate" class="gate" hidden>
+    <form id="pinForm" class="gate-card cut">
+      <span class="mono dim">ACCESS // PIN REQUIRED</span>
+      <h2>Enter PIN</h2>
+      <p>Ask the person wearing the headset.</p>
+      <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
+      <button class="btn primary">Watch</button>
+      <p id="pinError" class="error"></p>
+    </form>
+  </div>
+
+  <!-- Big link code: the Quest looks at this through its camera and links by itself -->
+  <section id="linkOverlay" class="link-overlay" hidden>
+    <div class="lo-head">
+      <span class="mono"><i class="lo-dot"></i><span id="loKicker">LINK // WAITING FOR YOUR QUEST</span></span>
+      <button class="icon-btn" id="loClose" aria-label="Close">✕</button>
+    </div>
+    <div class="lo-body">
+      <div class="lo-qr" id="loQr"><i class="sweep"></i><b class="c tl"></b><b class="c tr"></b><b class="c bl"></b><b class="c br"></b></div>
+      <div class="lo-text">
+        <h1 id="loTitle">Look at this with your Quest</h1>
+        <p id="loText">In the headset open <b>Quest Mirror → Show my PC here</b>, then just look at this screen. Linking happens by itself.</p>
+        <div class="lo-done" id="loDone" hidden><span>✓</span></div>
+        <p class="mono dim" id="loCode"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gentle "next step" nudge over the picture (PC only) -->
+  <aside id="nudge" class="nudge cut" hidden>
+    <span class="hatch"></span>
+    <div class="nudge-text">
+      <span class="mono dim">NEXT STEP</span>
+      <b id="nudgeTitle"></b>
+    </div>
+    <button class="btn primary" id="nudgeGo">Show me</button>
+    <button class="icon-btn small" id="nudgeClose" aria-label="Hide">✕</button>
+  </aside>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="qr.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
