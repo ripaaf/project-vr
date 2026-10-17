@@ -273,7 +273,7 @@
       setOverlay({
         code: 'FEED // HIDDEN BY QUEST',
         title: 'Quest is hiding the picture',
-        text: 'The headset is on, but Horizon OS is blacking out recordings because one of its own pop-ups is showing (a Guardian or tracking warning, a permission prompt, the keyboard). Close it in the headset. If it stays black, the pop-up is stuck: restart the Quest (hold the power button → Restart).',
+        text: 'The headset is on, but Horizon OS is blacking out recordings on purpose: a PIN prompt is open (a locked app asking for its PIN) or another private system pop-up. Enter the PIN or close the prompt and the picture comes back. If it stays black, the pop-up is stuck: restart the Quest (hold the power button → Restart).',
       });
     } else if (capture.dark) {
       setOverlay({

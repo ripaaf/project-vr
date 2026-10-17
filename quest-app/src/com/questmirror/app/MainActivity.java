@@ -9,7 +9,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -757,14 +756,9 @@ public class MainActivity extends Activity {
         panelState = body("");
         panelState.setPadding(0, Ui.dp(c, 14), 0, 0);
         shareSettings.addView(panelState);
-        panelBtn = Ui.button(c, "Accessibility settings", false);
-        panelBtn.setOnClickListener(v -> {
-            try {
-                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-            } catch (Exception e) {
-                toast("Turn it on from the PC: Settings → Turn on panel control");
-            }
-        });
+        // Horizon's own accessibility page doesn't list our service; the PC switches it on over adb.
+        panelBtn = Ui.button(c, "Turn on panel control", false);
+        panelBtn.setOnClickListener(v -> post("/api/setup/enable-control", new JSONObject(), "Panel control is on"));
         shareSettings.addView(panelBtn, Ui.full(c, 8));
         b.addView(shareSettings);
         col.addView(b);
@@ -1050,7 +1044,7 @@ public class MainActivity extends Activity {
         boolean panelOn = ControlService.get() != null || (agent != null && agent.optBoolean("accessibility"));
         panelState.setText(panelOn
                 ? "Panel control is on: viewers can click and type inside 2D apps (when you allow control)."
-                : "Panel control is off (optional). Turn it on from the PC to let viewers click inside 2D apps.");
+                : "Panel control is off (optional). Turn it on to let viewers click, scroll and type inside 2D apps from the web. Needs the Quest plugged in or on Wi-Fi ADB.");
         Ui.show(panelBtn, !panelOn);
 
         Ui.setTextSoft(linkedInfo, !paired ? "■ NOT LINKED" : found ? "■ LINKED TO " + nameOrPc().toUpperCase() + " · " + via : "■ LINKED TO " + nameOrPc().toUpperCase() + " · OFFLINE");
