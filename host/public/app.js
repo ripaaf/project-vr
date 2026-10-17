@@ -903,7 +903,7 @@
     } catch (e) {
       list.innerHTML = `<p class="hint">${esc(
         /agent|not running|did not respond|Panel control is off/i.test(e.message)
-          ? 'Panel control needs the Quest Mirror app with panel control turned on (Settings → Link status on the PC).'
+          ? 'Panel control needs the Quest Mirror app with panel control turned on (on the PC: Settings → Connection → Turn on panel control).'
           : e.message
       )}</p>`;
     }
