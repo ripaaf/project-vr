@@ -5,7 +5,7 @@ Dua arah, satu aplikasi:
 1. **PC kamu melayang di Quest**: layar PC (plus suaranya) muncul sebagai jendela melayang di headset. Bisa dipindah & di-resize pakai tangan, dan PC-nya dikontrol pakai tangan (tunjuk = mouse, pinch = klik).
 2. **Quest ke layar apa pun**: apa yang kamu lihat di Quest bisa ditonton di HP / TV / laptop lewat browser, dan bisa dikontrol dari sana.
 
-Semua jalan **tanpa controller** dan **tanpa kabel** setelah setup awal. Tampilan bergaya *technical paper / HUD* (referensi di `contoh_gambar/`), ada mode **PAPER** (terang) dan **NIGHT** (gelap).
+Semua jalan **tanpa controller** dan **tanpa kabel** setelah setup awal. Tampilan bergaya *technical paper / HUD* (referensi visual di `contoh_gambar/`, hanya lokal, tidak ikut di repo), ada mode **PAPER** (terang) dan **NIGHT** (gelap).
 
 ```
 ┌──────────── PC (Windows) ─────────────┐        Wi-Fi / USB        ┌──────── Meta Quest ────────┐
@@ -199,7 +199,7 @@ windows-app/
   src/Installer.cs        QuestMirror-Setup.exe: install satu klik (tanpa admin), shortcut, Start with Windows
   src/Brand.cs            logo & warna (digambar dari kode, juga jadi ikon .exe)
   build.ps1               compile (csc bawaan Windows) + bungkus Node/ffmpeg/adb/host/APK
-contoh_gambar/            referensi gaya visual
+contoh_gambar/            referensi gaya visual (lokal saja, di-.gitignore)
 host/
   server.js               HTTP server, API, halaman /link (QR)
   lib/adb.js              deteksi Quest (USB/Wi-Fi), auto Wi-Fi, tunnel, input
