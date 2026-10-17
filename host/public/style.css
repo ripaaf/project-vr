@@ -337,8 +337,9 @@ input:disabled { opacity: .35; cursor: not-allowed; }
 .panel-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .panel-bar .label { font-size: 14px; }
 .panel-hint { margin-left: auto; }
-.panel-canvas { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; }
-.panel-canvas img { max-width: 100%; max-height: 100%; cursor: crosshair; user-select: none; background: var(--bg-3); outline: var(--b) solid var(--ink); outline-offset: 6px; box-shadow: var(--shadow); }
+/* the picture shrinks into whatever height is left, so the typing bar below always stays on screen */
+.panel-canvas { position: relative; flex: 1; min-height: 0; }
+.panel-canvas img { position: absolute; inset: 8px; margin: auto; max-width: calc(100% - 16px); max-height: calc(100% - 16px); cursor: crosshair; user-select: none; background: var(--bg-3); outline: var(--b) solid var(--ink); outline-offset: 6px; box-shadow: var(--shadow); }
 .ripple { position: absolute; width: 40px; height: 40px; margin: -20px 0 0 -20px; border: 2px solid var(--signal); pointer-events: none; opacity: 0; }
 .ripple.go { animation: ripple .45s var(--ease); }
 @keyframes ripple { from { opacity: 1; transform: scale(.3) rotate(0); } to { opacity: 0; transform: scale(1.5) rotate(45deg); } }
@@ -522,3 +523,6 @@ body.idle .nudge { opacity: .25; }
 .dial-rings .dash { transform-origin: 100px 100px; animation: spin 40s linear infinite; }
 .toast.show { animation: toastIn .35s cubic-bezier(.2, 1.4, .4, 1); }
 @keyframes toastIn { from { transform: translateY(16px) scale(.96); } }
+
+/* the panel view has its own bottom bar: hide the mirror HUD behind it */
+body:has(#panelView:not([hidden])) .hud { opacity: 0; }

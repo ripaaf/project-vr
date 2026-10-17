@@ -79,12 +79,14 @@ final class Agent implements AgentServer.Handler {
                 return AgentServer.Response.json(new JSONObject().put("windows", svc.listWindows()));
             case "/shot":
                 return svc.screenshot(Integer.parseInt(req.q("id", "-1")));
+            case "/probe":
+                return AgentServer.Response.json(new JSONObject().put("nodes", svc.probe(Integer.parseInt(req.q("id", "-1")), Integer.parseInt(req.q("x", "0")), Integer.parseInt(req.q("y", "0")))));
             case "/tap":
                 return AgentServer.Response.json(svc.tap(b.optInt("id"), b.optInt("x"), b.optInt("y"), b.optBoolean("long")));
             case "/scroll":
                 return AgentServer.Response.json(svc.scroll(b.optInt("id"), b.optInt("x"), b.optInt("y"), b.optString("dir", "down")));
             case "/text":
-                return svc.typeText(b.has("id") ? b.optInt("id") : -1, b.optString("text", ""), b.optBoolean("enter"));
+                return svc.typeText(b.has("id") ? b.optInt("id") : -1, b.optString("text", ""), b.optBoolean("enter"), b.optBoolean("replace"));
             case "/global":
                 return AgentServer.Response.json(svc.global(b.optString("action")));
             default:

@@ -508,9 +508,21 @@ async function handle(req, res) {
 
   if (method === 'POST' && p === '/api/panels/action') {
     const b = await readBody(req);
-    const routes = { tap: '/tap', longpress: '/tap', scroll: '/scroll', text: '/text', focus: '/focus' };
+    const routes = { tap: '/tap', longpress: '/tap', scroll: '/scroll', text: '/text' };
     if (!routes[b.type]) return fail(res, 400, 'Unknown panel action');
-    return json(res, 200, await control.agentCall('POST', routes[b.type], { ...b, long: b.type === 'longpress' }));
+    const r = await control.agentCall('POST', routes[b.type], { ...b, long: b.type === 'longpress' });
+    // Some apps (the Quest Browser's web pages) don't expose scrolling to accessibility. If that panel
+    // has focus, Page Up / Page Down does the same thing.
+    if (b.type === 'scroll' && r && r.ok === false && (b.dir === 'up' || b.dir === 'down')) {
+      const { windows = [] } = await control.agentCall('GET', '/windows').catch(() => ({}));
+      const w = windows.find((x) => x.id === Number(b.id));
+      if (w && w.focused) {
+        devices.input(`input keyevent ${b.dir === 'down' ? 93 : 92}`);
+        return json(res, 200, { ok: true, via: 'keys' });
+      }
+      return json(res, 200, { ok: false, message: 'Tap inside that panel first, then scroll' });
+    }
+    return json(res, 200, r);
   }
 
   // ---- owner-only setup actions (PC dashboard or the Quest app itself)

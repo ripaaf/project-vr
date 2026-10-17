@@ -100,6 +100,7 @@ public class ControlService extends AccessibilityService {
             o.put("y", b.top);
             o.put("w", b.width());
             o.put("h", b.height());
+            o.put("display", Build.VERSION.SDK_INT >= 30 ? w.getDisplayId() : 0);
             o.put("focused", w.isFocused());
             o.put("active", w.isActive());
             out.put(o);
@@ -165,6 +166,40 @@ public class ControlService extends AccessibilityService {
     // ------------------------------------------------------------------ node helpers
 
     /** Deepest visible node whose bounds contain (sx, sy). Later children are drawn on top, so search them first. */
+    interface NodeTest {
+        boolean ok(AccessibilityNodeInfo n);
+    }
+
+    /**
+     * The smallest visible node at a point that passes the test. Better than "topmost": apps such as
+     * the Quest Browser lay invisible full-panel layers over their toolbar.
+     */
+    private static AccessibilityNodeInfo smallestAt(AccessibilityNodeInfo root, int sx, int sy, NodeTest test) {
+        if (root == null) return null;
+        AccessibilityNodeInfo best = null;
+        long bestArea = Long.MAX_VALUE;
+        java.util.ArrayDeque<AccessibilityNodeInfo> queue = new java.util.ArrayDeque<>();
+        queue.add(root);
+        int visited = 0;
+        Rect r = new Rect();
+        while (!queue.isEmpty() && visited++ < 4000) {
+            AccessibilityNodeInfo n = queue.poll();
+            n.getBoundsInScreen(r);
+            if (r.contains(sx, sy) && n.isVisibleToUser() && test.ok(n)) {
+                long area = (long) r.width() * r.height();
+                if (area <= bestArea) {
+                    bestArea = area;
+                    best = n;
+                }
+            }
+            for (int i = 0; i < n.getChildCount(); i++) {
+                AccessibilityNodeInfo c = n.getChild(i);
+                if (c != null) queue.add(c);
+            }
+        }
+        return best;
+    }
+
     private static AccessibilityNodeInfo deepestAt(AccessibilityNodeInfo node, int sx, int sy) {
         if (node == null) return null;
         Rect r = new Rect();
@@ -177,6 +212,39 @@ public class ControlService extends AccessibilityService {
         return node;
     }
 
+    /** Diagnostics: every node at a point, smallest first, with what it can do. */
+    JSONArray probe(int windowId, int x, int y) throws Exception {
+        JSONArray out = new JSONArray();
+        AccessibilityWindowInfo w = findWindow(windowId);
+        if (w == null) return out;
+        Rect wb = new Rect();
+        w.getBoundsInScreen(wb);
+        java.util.ArrayDeque<AccessibilityNodeInfo> queue = new java.util.ArrayDeque<>();
+        if (w.getRoot() != null) queue.add(w.getRoot());
+        Rect r = new Rect();
+        int visited = 0;
+        while (!queue.isEmpty() && visited++ < 4000) {
+            AccessibilityNodeInfo n = queue.poll();
+            n.getBoundsInScreen(r);
+            if (r.contains(wb.left + x, wb.top + y)) {
+                JSONObject o = new JSONObject();
+                o.put("node", describe(n));
+                o.put("id", n.getViewIdResourceName() == null ? "" : n.getViewIdResourceName());
+                o.put("bounds", r.flattenToString());
+                o.put("click", n.isClickable());
+                o.put("visible", n.isVisibleToUser());
+                o.put("enabled", n.isEnabled());
+                o.put("area", r.width() * r.height());
+                out.put(o);
+            }
+            for (int i = 0; i < n.getChildCount(); i++) {
+                AccessibilityNodeInfo c = n.getChild(i);
+                if (c != null) queue.add(c);
+            }
+        }
+        return out;
+    }
+
     private static String describe(AccessibilityNodeInfo n) {
         if (n == null) return "";
         CharSequence t = n.getText() != null ? n.getText() : n.getContentDescription();
@@ -187,18 +255,50 @@ public class ControlService extends AccessibilityService {
 
     private AccessibilityNodeInfo lastEditable;
 
+    /** A real tap (or press-and-hold) at a display point; waits for the system to deliver it. */
+    private boolean touch(int displayId, int x, int y, boolean longPress) throws InterruptedException {
+        android.graphics.Path path = new android.graphics.Path();
+        path.moveTo(x, y);
+        android.accessibilityservice.GestureDescription.Builder gb = new android.accessibilityservice.GestureDescription.Builder();
+        gb.addStroke(new android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, longPress ? 650 : 60));
+        if (Build.VERSION.SDK_INT >= 30) gb.setDisplayId(displayId);
+        final CountDownLatch done = new CountDownLatch(1);
+        final boolean[] ok = {false};
+        boolean sent = dispatchGesture(gb.build(), new GestureResultCallback() {
+            @Override
+            public void onCompleted(android.accessibilityservice.GestureDescription g) {
+                ok[0] = true;
+                done.countDown();
+            }
+
+            @Override
+            public void onCancelled(android.accessibilityservice.GestureDescription g) {
+                done.countDown();
+            }
+        }, null);
+        if (!sent) return false;
+        done.await(2, TimeUnit.SECONDS);
+        return ok[0];
+    }
+
     JSONObject tap(int windowId, int x, int y, boolean longPress) throws Exception {
         JSONObject res = new JSONObject();
         AccessibilityWindowInfo w = findWindow(windowId);
         if (w == null) return res.put("ok", false).put("message", "That window is gone");
         Rect wb = new Rect();
         w.getBoundsInScreen(wb);
-        AccessibilityNodeInfo target = deepestAt(w.getRoot(), wb.left + x, wb.top + y);
+        int sx = wb.left + x, sy = wb.top + y;
+        AccessibilityNodeInfo target = smallestAt(w.getRoot(), sx, sy,
+                n -> n.isEditable() || (longPress ? n.isLongClickable() : n.isClickable()));
+        if (target == null) target = deepestAt(w.getRoot(), sx, sy);
         if (target == null) return res.put("ok", false).put("message", "Nothing there");
-        if (target.isEditable()) {
-            lastEditable = target;
-            target.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
+        if (target.isEditable()) lastEditable = target;
+        // The focused panel is the top one at its spot, so a real touch lands exactly like a finger.
+        // Needed for apps that ignore accessibility clicks (the Quest Browser's toolbar).
+        if (w.isFocused() && Build.VERSION.SDK_INT >= 30 && touch(w.getDisplayId(), sx, sy, longPress)) {
+            return res.put("ok", true).put("via", "touch").put("node", describe(target));
         }
+        if (target.isEditable()) target.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
         AccessibilityNodeInfo n = target;
         while (n != null && !(longPress ? n.isLongClickable() : n.isClickable())) n = n.getParent();
         boolean ok = false;
@@ -216,8 +316,7 @@ public class ControlService extends AccessibilityService {
         if (w == null) return res.put("ok", false).put("message", "That window is gone");
         Rect wb = new Rect();
         w.getBoundsInScreen(wb);
-        AccessibilityNodeInfo n = deepestAt(w.getRoot(), wb.left + x, wb.top + y);
-        while (n != null && !n.isScrollable()) n = n.getParent();
+        AccessibilityNodeInfo n = smallestAt(w.getRoot(), wb.left + x, wb.top + y, AccessibilityNodeInfo::isScrollable);
         if (n == null) n = largestScrollable(w.getRoot());
         if (n == null) return res.put("ok", false).put("message", "Nothing scrollable there");
 
@@ -263,7 +362,7 @@ public class ControlService extends AccessibilityService {
         return best;
     }
 
-    AgentServer.Response typeText(int windowId, String text, boolean enter) throws Exception {
+    AgentServer.Response typeText(int windowId, String text, boolean enter, boolean replace) throws Exception {
         AccessibilityNodeInfo field = null;
         List<AccessibilityWindowInfo> windows = getWindows();
         for (AccessibilityWindowInfo w : windows) {
@@ -282,6 +381,8 @@ public class ControlService extends AccessibilityService {
         if (!text.isEmpty()) {
             CharSequence current = field.getText();
             if (Build.VERSION.SDK_INT >= 26 && field.isShowingHintText()) current = "";
+            // An address bar gets replaced, like a browser does when you start typing in it; other boxes keep their text.
+            if (replace || (current != null && current.toString().matches("(?i)https?://\\S*"))) current = "";
             Bundle args = new Bundle();
             args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, (current == null ? "" : current.toString()) + text);
             field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
