@@ -1,5 +1,5 @@
 @echo off
-title Quest Mirror
+title UTSUSHI
 cd /d "%~dp0host"
 where node >nul 2>nul
 if errorlevel 1 (

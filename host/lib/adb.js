@@ -162,6 +162,12 @@ class DeviceManager extends EventEmitter {
       this.adb.run(['connect', `${ip}:${WIFI_PORT}`], { timeout: 4000 }).catch(() => {});
     }
 
+    // The tunnels vanish when the USB link resets (e.g. the headset sleeps and wakes): put them back.
+    if (this.current && !this.switching && Date.now() - (this.tunnelCheckedAt || 0) > 5000) {
+      this.tunnelCheckedAt = Date.now();
+      this.checkTunnels().catch(() => {});
+    }
+
     if ((pick && pick.serial) !== (this.current && this.current.serial)) {
       const prev = this.current;
       this.current = pick ? { serial: pick.serial, transport: pick.transport, model: pick.model } : null;
@@ -185,6 +191,18 @@ class DeviceManager extends EventEmitter {
     if (!s) return;
     await this.adb.run(['-s', s, 'reverse', `tcp:${this.hostPort}`, `tcp:${this.hostPort}`]);
     await this.adb.run(['-s', s, 'forward', `tcp:${this.agentPort}`, `tcp:${this.agentPort}`]);
+  }
+
+  async checkTunnels() {
+    const s = this.current && this.current.serial;
+    if (!s) return;
+    const rev = await this.adb.run(['-s', s, 'reverse', '--list'], { timeout: 4000 });
+    const fwd = await this.adb.run(['forward', '--list'], { timeout: 4000 });
+    const hasRev = rev.includes(`tcp:${this.hostPort}`);
+    const hasFwd = fwd.split(/\r?\n/).some((l) => l.startsWith(`${s} `) && l.includes(`tcp:${this.agentPort}`));
+    if (hasRev && hasFwd) return;
+    console.log('[adb] the tunnel to the Quest was gone (USB reset?), restoring it');
+    await this.setupTunnels();
   }
 
   async refreshInfo() {

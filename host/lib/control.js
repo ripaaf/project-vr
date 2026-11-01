@@ -139,7 +139,7 @@ class Control {
 
   async close(pkg) {
     if (!PKG_RE.test(pkg)) throw new Error('Bad package name');
-    if (pkg === 'com.questmirror.app') throw new Error('Not closing the Quest Mirror app itself');
+    if (pkg === 'com.questmirror.app') throw new Error('Not closing the UTSUSHI app itself');
     await this.devices.shell(`am force-stop ${pkg}`);
   }
 

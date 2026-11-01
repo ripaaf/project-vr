@@ -37,8 +37,8 @@ namespace QuestMirror
         }
 
         /// <summary>
-        /// The app window: an Edge/Chrome app-mode window (class Chrome_WidgetWin_1) titled exactly "Quest Mirror".
-        /// Browser tabs ("Quest Mirror - Google Chrome") don't count — the app keeps its own window.
+        /// The app window: an Edge/Chrome app-mode window (class Chrome_WidgetWin_1) titled exactly "UTSUSHI".
+        /// Browser tabs ("UTSUSHI - Google Chrome") don't count — the app keeps its own window.
         /// </summary>
         public static IntPtr FindDashboardWindow()
         {
@@ -52,7 +52,7 @@ namespace QuestMirror
                 var sb = new StringBuilder(256);
                 GetWindowText(h, sb, 256);
                 string t = sb.ToString();
-                if (t == "Quest Mirror")
+                if (t == "UTSUSHI")
                 {
                     found = h;
                     return false;

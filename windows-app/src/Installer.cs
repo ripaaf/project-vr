@@ -9,8 +9,8 @@ using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-[assembly: AssemblyTitle("Quest Mirror Setup")]
-[assembly: AssemblyProduct("Quest Mirror")]
+[assembly: AssemblyTitle("UTSUSHI Setup")]
+[assembly: AssemblyProduct("UTSUSHI")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
 
@@ -29,7 +29,7 @@ namespace QuestMirror
         }
     }
 
-    /// <summary>One window, no wizard: it installs as soon as it opens, then starts Quest Mirror.</summary>
+    /// <summary>One window, no wizard: it installs as soon as it opens, then starts UTSUSHI.</summary>
     sealed class SetupForm : Form
     {
         public static readonly string InstallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Quest Mirror");
@@ -45,7 +45,7 @@ namespace QuestMirror
         public SetupForm(bool quiet)
         {
             this.quiet = quiet;
-            Text = "Quest Mirror Setup";
+            Text = "UTSUSHI Setup";
             Icon = Brand.MakeIcon(32);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
@@ -70,7 +70,7 @@ namespace QuestMirror
             };
             action = new Button
             {
-                Text = "OPEN QUEST MIRROR  →",
+                Text = "OPEN UTSUSHI  →",
                 Font = Brand.Mono(10),
                 Size = new Size(230, 46),
                 Location = new Point(350, 270),
@@ -100,11 +100,12 @@ namespace QuestMirror
             using (var sig = new SolidBrush(Brand.Signal))
             {
                 float x = 102;
-                g.DrawString("QUEST", f, ink, x, 44);
-                x += g.MeasureString("QUEST", f).Width - 8;
+                g.DrawString("UTSUSHI", f, ink, x, 44);
+                x += g.MeasureString("UTSUSHI", f).Width - 8;
                 g.DrawString("/", f, sig, x, 44);
-                x += g.MeasureString("/", f).Width - 8;
-                g.DrawString("MIRROR", f, ink, x, 44);
+                x += g.MeasureString("/", f).Width - 6;
+                // the kanji in a Japanese UI font (the display font has no CJK glyphs)
+                using (var jp = new Font("Yu Gothic UI", f.Size, FontStyle.Bold, f.Unit)) g.DrawString("写し", jp, ink, x, 46);
             }
             using (var m = Brand.Mono(8))
             using (var b = new SolidBrush(Brand.Signal)) g.DrawString("■ SETUP // V" + Brand.Version, m, b, 104, 76);
@@ -129,7 +130,7 @@ namespace QuestMirror
         {
             try
             {
-                Step("Closing Quest Mirror if it's running", 0.02f);
+                Step("Closing UTSUSHI if it's running", 0.02f);
                 StopRunningCopy();
 
                 Step("Copying files", 0.05f);
@@ -253,9 +254,9 @@ namespace QuestMirror
         {
             using (var k = Registry.CurrentUser.CreateSubKey(UninstallKey))
             {
-                k.SetValue("DisplayName", "Quest Mirror");
+                k.SetValue("DisplayName", "UTSUSHI");
                 k.SetValue("DisplayVersion", Brand.Version);
-                k.SetValue("Publisher", "Quest Mirror");
+                k.SetValue("Publisher", "UTSUSHI");
                 k.SetValue("DisplayIcon", exe + ",0");
                 k.SetValue("InstallLocation", InstallDir);
                 k.SetValue("UninstallString", "\"" + exe + "\" --uninstall");

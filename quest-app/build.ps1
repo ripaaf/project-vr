@@ -49,6 +49,9 @@ function Run($exe, [string[]]$argv) {
 }
 
 Write-Host '1/6 resources'
+# UTSUSHI Space travels inside the app, so the headset can serve it without the PC
+New-Item -ItemType Directory -Force "$out\assets" | Out-Null
+Copy-Item (Join-Path $here '..\host\public\space') "$out\assets\space" -Recurse -Force
 Run "$bt\aapt2.exe" @('compile', '--dir', "$here\res", '-o', "$out\res.zip")
 Run "$bt\aapt2.exe" @('link', '-o', "$out\base.apk", '-I', $androidJar, '--manifest', "$here\AndroidManifest.xml",
     '--java', "$out\gen", '--min-sdk-version', '29', '--target-sdk-version', '32',
@@ -69,6 +72,22 @@ Copy-Item "$out\base.apk" "$out\unsigned.apk"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::Open("$out\unsigned.apk", 'Update')
 [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, "$out\dex\classes.dex", 'classes.dex') | Out-Null
+# the space's files, named with forward slashes (aapt2 -A on Windows writes backslashes Android can't find)
+$assetRoot = (Resolve-Path "$out\assets").Path
+Get-ChildItem $assetRoot -Recurse -File | ForEach-Object {
+    $name = 'assets/' + $_.FullName.Substring($assetRoot.Length + 1).Replace('\', '/')
+    [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $name) | Out-Null
+}
+# programs the app runs itself (the Terminal's Linux toolbox, BusyBox from Alpine): Android only
+# lets an app run what it installs under lib/<abi>/ as lib*.so
+$nativeRoot = Join-Path $here 'native'
+if (Test-Path $nativeRoot) {
+    $nativeRoot = (Resolve-Path $nativeRoot).Path
+    Get-ChildItem $nativeRoot -Recurse -File | ForEach-Object {
+        $name = 'lib/' + $_.FullName.Substring($nativeRoot.Length + 1).Replace('\', '/')
+        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $name) | Out-Null
+    }
+}
 $zip.Dispose()
 Run "$bt\zipalign.exe" @('-p', '-f', '4', "$out\unsigned.apk", "$out\aligned.apk")
 

@@ -512,7 +512,7 @@ public class ScreenActivity extends Activity implements SurfaceHolder.Callback, 
             overlay.setAlpha(1f);
             overlay.setVisibility(View.VISIBLE);
             overlayRing.setBusy(false);
-            overlayText.setText("Unlinked from the PC.\nLink again in the Quest Mirror app.");
+            overlayText.setText("Unlinked from the PC.\nLink again in the UTSUSHI app.");
             statusText.setText("■ " + (message == null ? "REFUSED" : message.toUpperCase()));
             statusText.setTextColor(Ui.SIGNAL);
             Ui.fadeUp(overlay, 0);

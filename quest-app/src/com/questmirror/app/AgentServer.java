@@ -35,6 +35,7 @@ final class AgentServer {
         String method;
         String path;
         final Map<String, String> query = new HashMap<>();
+        final Map<String, String> headers = new HashMap<>(); // lower-case names
         byte[] body = new byte[0];
 
         JSONObject json() {
@@ -55,11 +56,19 @@ final class AgentServer {
         final int code;
         final String type;
         final byte[] body;
+        String extra = ""; // more header lines, each ending in \r\n
+        java.io.File file; // sent from disk instead of body (big files)
 
         Response(int code, String type, byte[] body) {
             this.code = code;
             this.type = type;
             this.body = body;
+        }
+
+        static Response file(java.io.File f, String type) {
+            Response r = new Response(200, type, new byte[0]);
+            r.file = f;
+            return r;
         }
 
         static Response json(Object o) {
@@ -78,12 +87,18 @@ final class AgentServer {
 
     private final int port;
     private final Handler handler;
-    private final ExecutorService pool = Executors.newFixedThreadPool(4);
+    private final int maxBody;
+    private final ExecutorService pool = Executors.newFixedThreadPool(16); // some answers wait (pictures, shell output)
     private volatile ServerSocket socket;
 
     AgentServer(int port, Handler handler) {
+        this(port, handler, 1024 * 1024);
+    }
+
+    AgentServer(int port, Handler handler, int maxBody) {
         this.port = port;
         this.handler = handler;
+        this.maxBody = maxBody;
     }
 
     synchronized boolean start() {
@@ -120,26 +135,39 @@ final class AgentServer {
         try (Socket sock = s) {
             sock.setSoTimeout(15000);
             InputStream in = new BufferedInputStream(sock.getInputStream());
-            Request req = parse(in);
+            Request req = parse(in, maxBody);
             Response res;
             if (req == null) {
                 res = Response.error(400, "Bad request");
             } else {
                 try {
                     res = handler.handle(req);
+                } catch (SecurityException e) {
+                    res = Response.error(403, e.getMessage());
+                } catch (IllegalArgumentException e) {
+                    res = Response.error(400, e.getMessage());
                 } catch (Exception e) {
                     Log.w(TAG, "handler failed: " + req.path, e);
                     res = Response.error(500, e.getMessage() == null ? e.toString() : e.getMessage());
                 }
             }
             OutputStream out = sock.getOutputStream();
+            long length = res.file != null ? res.file.length() : res.body.length;
             String head = "HTTP/1.1 " + res.code + " " + (res.code < 400 ? "OK" : "Error") + "\r\n"
                     + "Content-Type: " + res.type + "\r\n"
-                    + "Content-Length: " + res.body.length + "\r\n"
+                    + "Content-Length: " + length + "\r\n"
                     + "Cache-Control: no-store\r\n"
+                    + res.extra
                     + "Connection: close\r\n\r\n";
             out.write(head.getBytes(StandardCharsets.US_ASCII));
-            out.write(res.body);
+            if (res.file != null) {
+                sock.setSoTimeout(0); // a big file may take a while
+                try (InputStream fin = new java.io.FileInputStream(res.file)) {
+                    byte[] b = new byte[65536];
+                    int n;
+                    while ((n = fin.read(b)) > 0) out.write(b, 0, n);
+                }
+            } else out.write(res.body);
             out.flush();
         } catch (IOException ignored) {
         }
@@ -157,7 +185,7 @@ final class AgentServer {
         return buf.toString("UTF-8");
     }
 
-    private static Request parse(InputStream in) throws IOException {
+    private static Request parse(InputStream in, int maxBody) throws IOException {
         String line = readLine(in);
         if (line == null) return null;
         String[] parts = line.split(" ");
@@ -178,12 +206,13 @@ final class AgentServer {
         String h;
         while ((h = readLine(in)) != null && !h.isEmpty()) {
             int colon = h.indexOf(':');
+            if (colon > 0) r.headers.put(h.substring(0, colon).trim().toLowerCase(java.util.Locale.ROOT), h.substring(colon + 1).trim());
             if (colon > 0 && h.substring(0, colon).trim().equalsIgnoreCase("content-length")) {
                 length = Integer.parseInt(h.substring(colon + 1).trim());
             }
         }
         if (length > 0) {
-            if (length > 1024 * 1024) throw new IOException("body too large");
+            if (length > maxBody) throw new IOException("body too large");
             byte[] body = new byte[length];
             int read = 0;
             while (read < length) {

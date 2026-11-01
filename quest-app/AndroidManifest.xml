@@ -3,10 +3,15 @@
     package="com.questmirror.app">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Files and the Terminal in the space without the PC: the Quest's storage (asked once) -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- start UTSUSHI Linux (the Terminal's Alpine), which only apps signed like this one may -->
+    <uses-permission android:name="com.questmirror.linux.permission.RUN" />
 
     <!-- Look at the PC's code to link: Horizon OS Passthrough Camera API. -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -25,7 +30,9 @@
     </queries>
 
     <application
+        android:name=".UtsushiApp"
         android:allowBackup="false"
+        android:extractNativeLibs="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -64,6 +71,12 @@
             android:windowSoftInputMode="adjustNothing">
             <layout android:defaultWidth="1600dp" android:defaultHeight="960dp" android:gravity="center" />
         </activity>
+
+        <!-- keeps the space without the PC served while the browser is in front -->
+        <service
+            android:name=".SpaceService"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
 
         <receiver
             android:name=".AgentStarter"

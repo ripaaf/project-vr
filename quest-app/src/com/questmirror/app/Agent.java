@@ -52,7 +52,7 @@ final class Agent implements AgentServer.Handler {
                 return icon(req.q("pkg", ""));
             case "/selfshot": {
                 byte[] png = MainActivity.snapshot("1".equals(req.q("full", "")));
-                if (png == null) return AgentServer.Response.error(404, "The Quest Mirror panel is not open");
+                if (png == null) return AgentServer.Response.error(404, "The UTSUSHI panel is not open");
                 return new AgentServer.Response(200, "image/png", png);
             }
             case "/volume": {
@@ -72,7 +72,7 @@ final class Agent implements AgentServer.Handler {
         }
 
         ControlService svc = ControlService.get();
-        if (svc == null) return AgentServer.Response.error(503, "Panel control is off. Turn on the Quest Mirror accessibility service.");
+        if (svc == null) return AgentServer.Response.error(503, "Panel control is off. Turn on the UTSUSHI accessibility service.");
         JSONObject b = req.json();
         switch (req.path) {
             case "/windows":

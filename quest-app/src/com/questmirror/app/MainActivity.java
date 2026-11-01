@@ -13,6 +13,7 @@ import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.graphics.Typeface;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -60,6 +61,7 @@ public class MainActivity extends Activity {
 
     // home
     private TextView homeKicker;
+    private EnsoView homeEnso; // the space's mark, painting itself when home shows
 
     // home tiles
     private TextView tileAStatus, tileBStatus;
@@ -102,6 +104,14 @@ public class MainActivity extends Activity {
         host = HostClient.get(this);
         prefs = getSharedPreferences("questmirror", MODE_PRIVATE);
         Agent.ensureStarted(this);
+        // the space without the PC is always ready on localhost:8770 (it only listens on this headset),
+        // kept alive by a quiet foreground service while you are in the browser
+        try {
+            startForegroundService(new Intent(this, SpaceService.class));
+        } catch (Exception e) {
+            io.execute(() -> SpaceServer.start(this));
+        }
+        LinuxBridge.wake(this); // the Terminal's Linux, if UTSUSHI Linux is installed
         host.startDiscovery();
         setContentView(buildUi());
         page = b != null ? b.getInt("page", -1) : -1;
@@ -184,6 +194,19 @@ public class MainActivity extends Activity {
         visible = true;
         refreshNow();
         if (page == LINK) startScanning(false);
+        askFilesOnce();
+    }
+
+    /** Files and the Terminal in the space (without the PC) reach the Quest's storage only with
+     *  "All files access": ask once, on the system's own page. */
+    private void askFilesOnce() {
+        if (QuestFiles.allowed() || prefs.getBoolean("askedFiles", false)) return;
+        prefs.edit().putBoolean("askedFiles", true).apply();
+        toast("Turn on “All files access” so Files in UTSUSHI Space can reach your Quest storage.");
+        try {
+            startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + getPackageName())));
+        } catch (Exception ignored) {
+        }
     }
 
     @Override
@@ -227,6 +250,7 @@ public class MainActivity extends Activity {
         in.setTranslationX(dir * d);
         in.animate().alpha(1f).translationX(0).setStartDelay(90).setDuration(320).setInterpolator(Ui.EASE).start();
         page = target;
+        if (target == HOME && homeEnso != null) homeEnso.restart(); // the ensō paints itself again
         settingsBtn.setSelected(target == SETTINGS);
         playEntrance(target);
         if (target == LINK) startScanning(false);
@@ -359,33 +383,92 @@ public class MainActivity extends Activity {
         col.setGravity(Gravity.CENTER_VERTICAL);
         col.setPadding(0, Ui.dp(c, 8), 0, Ui.dp(c, 8));
 
-        TextView kicker = homeKicker = Ui.mono(c, "■ STEP 2 OF 2 // LINKED", 13, Ui.SIGNAL);
-        TextView hero = title("What do you want to do?", 40);
-        TextView sub = body("Pick one. You can switch any time — just come back here.");
-        col.addView(kicker);
-        col.addView(hero);
-        col.addView(sub);
-
+        // The space comes first: the same welcome it has always had (the ensō painting itself, its
+        // name, what is in there, Enter), now right here in the app. The PC ways in sit below.
         boolean wide = getResources().getConfiguration().screenWidthDp >= 820;
+        LinearLayout heroRow = new LinearLayout(c);
+        heroRow.setOrientation(wide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        heroRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        LinearLayout mark = new LinearLayout(c);
+        mark.setOrientation(LinearLayout.HORIZONTAL);
+        mark.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        homeEnso = new EnsoView(c);
+        mark.addView(homeEnso, new LinearLayout.LayoutParams(Ui.dp(c, 300), Ui.dp(c, 300)));
+        TextView vertical = Ui.text(c, "映\n·\n空\n·\n間", 16, Ui.INK3, Ui.UI);
+        vertical.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        vertical.setLineSpacing(0, 1.3f);
+        mark.addView(vertical);
+        heroRow.addView(mark);
+
+        LinearLayout words = new LinearLayout(c);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.setPadding(wide ? Ui.dp(c, 36) : 0, wide ? 0 : Ui.dp(c, 18), 0, 0);
+        TextView kicker = Ui.mono(c, "■ IMMERSIVE SPACE · HANDS FIRST", 13, Ui.SIGNAL);
+        TextView hero = Ui.text(c, "UTSUSHI", 76, Ui.INK, Typeface.create(Typeface.SERIF, Typeface.BOLD));
+        hero.setLetterSpacing(0.08f);
+        View rule = new View(c);
+        rule.setBackgroundColor(Ui.SIGNAL);
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(Ui.dp(c, 64), Ui.dp(c, 3));
+        rp.topMargin = Ui.dp(c, 6);
+        rp.bottomMargin = Ui.dp(c, 16);
+        TextView sub = body("A quiet room around you: your windows, notes, models and scans, the web, your files and a terminal — in your room or in the night garden. Hands first; controllers work too.");
+        homeKicker = Ui.mono(c, "■ READY", 12, Ui.INK3);
+        homeKicker.setPadding(0, Ui.dp(c, 16), 0, Ui.dp(c, 18));
+        Button enter = Ui.button(c, "Enter the space  →", true);
+        enter.setOnClickListener(v -> openSpace());
+        words.addView(kicker);
+        words.addView(hero);
+        words.addView(rule, rp);
+        words.addView(sub);
+        words.addView(homeKicker);
+        words.addView(enter, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        heroRow.addView(words, wide ? new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1) : Ui.full(c, 0));
+        col.addView(heroRow);
+
+        // before you go in (as the space's welcome page had it)
+        LinearLayout before = new LinearLayout(c);
+        before.setOrientation(wide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        String[][] steps = {
+                {"01 · HANDS", "Pinch from afar, or touch windows when they are near. Palm up opens the quick ring."},
+                {"02 · YOUR ROOM", "Scan things, place models, draw in the air. Void hides your room when you want quiet."},
+                {"03 · GUIDE", "The first visit has a short guide. It lives in Apps afterwards."},
+        };
+        for (String[] st : steps) {
+            LinearLayout one = new LinearLayout(c);
+            one.setOrientation(LinearLayout.VERTICAL);
+            one.setPadding(0, Ui.dp(c, 10), Ui.dp(c, 22), 0);
+            one.addView(Ui.mono(c, st[0], 12, Ui.INK));
+            TextView d = Ui.text(c, st[1], 15, Ui.INK3, Ui.UI);
+            d.setPadding(0, Ui.dp(c, 4), 0, 0);
+            one.addView(d);
+            before.addView(one, wide ? new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1) : Ui.full(c, 0));
+        }
+        col.addView(before, Ui.full(c, 30));
+
+        // your PC, the other ways in
+        TextView also = Ui.mono(c, "ALSO // WITH YOUR PC", 12, Ui.INK3);
+        also.setPadding(0, Ui.dp(c, 34), 0, Ui.dp(c, 10));
+        col.addView(also);
         LinearLayout tiles = new LinearLayout(c);
         tiles.setOrientation(wide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
         LinearLayout tileA = tile(Ui.Glyph.MONITOR, "A // PC → QUEST", "Show my PC here", "Your PC screens float in front of you. Control them with your hands.", true);
         LinearLayout tileB = tile(Ui.Glyph.CAST, "B // QUEST → SCREENS", "Share what I see", "Watch your Quest on a TV, phone or laptop — just open a link.", false);
+        tileA.setMinimumHeight(Ui.dp(c, 160));
+        tileB.setMinimumHeight(Ui.dp(c, 160));
         tileA.setOnClickListener(v -> showPage(PC));
         tileB.setOnClickListener(v -> showPage(SHARE));
-        // Side by side, both tiles take the taller one's height.
         LinearLayout.LayoutParams pa = wide ? new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1) : Ui.full(c, 0);
         LinearLayout.LayoutParams pb = wide ? new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1) : Ui.full(c, 14);
         tiles.setBaselineAligned(false);
         if (wide) pa.rightMargin = Ui.dp(c, 18);
         tiles.addView(tileA, pa);
         tiles.addView(tileB, pb);
-        col.addView(tiles, Ui.full(c, 24));
+        col.addView(tiles);
 
         TextView tip = Ui.mono(c, "TIP // POINT AT A BUTTON, THEN PINCH TO PRESS IT", 12, Ui.INK3);
         tip.setPadding(0, Ui.dp(c, 22), 0, 0);
         col.addView(tip);
-        entrance[HOME] = new View[]{kicker, hero, sub, tileA, tileB, tip};
+        entrance[HOME] = new View[]{mark, words, before, also, tileA, tileB, tip};
         return col;
     }
 
@@ -425,6 +508,30 @@ public class MainActivity extends Activity {
             tileBStatus = s;
             tileBDot = dot;
         }
+        return t;
+    }
+
+    /** The third way in: UTSUSHI Space, the immersive room (a wide, short row under the two tiles). */
+    private View spaceBanner() {
+        Context c = this;
+        LinearLayout t = Ui.row(c);
+        t.setPadding(Ui.dp(c, 30), Ui.dp(c, 22), Ui.dp(c, 30), Ui.dp(c, 22));
+        Ui.rowBackground(c, t);
+        Ui.pressable(t);
+        t.addView(new Ui.Glyph(c, Ui.Glyph.ENSO, 56));
+        LinearLayout words = new LinearLayout(c);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.setPadding(Ui.dp(c, 22), 0, Ui.dp(c, 12), 0);
+        words.addView(Ui.mono(c, "C // IMMERSIVE · 写し", 12, Ui.SIGNAL));
+        words.addView(title("Enter UTSUSHI Space", 30));
+        words.addView(body("Your PC screens, a headset terminal, your ESP32 boards, 3D objects and photos you take with your fingers, all around you."));
+        t.addView(words, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        LinearLayout side = new LinearLayout(c);
+        side.setOrientation(LinearLayout.VERTICAL);
+        side.setGravity(Gravity.END);
+        side.addView(Ui.text(c, "→", 30, Ui.INK, Ui.MONO_BOLD));
+        side.addView(Ui.mono(c, "OVER THE CABLE", 12, Ui.INK3));
+        t.addView(side);
         return t;
     }
 
@@ -628,7 +735,7 @@ public class MainActivity extends Activity {
         ft.setOrientation(LinearLayout.VERTICAL);
         ft.setPadding(Ui.dp(c, 18), 0, 0, 0);
         ft.addView(title("Start the PC app", 26));
-        ft.addView(body("Run Quest Mirror (start.bat) on your PC, on the same Wi-Fi as this Quest."));
+        ft.addView(body("Run UTSUSHI (start.bat) on your PC, on the same Wi-Fi as this Quest."));
         fr.addView(ft, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         findPcBox.addView(fr);
         col.addView(findPcBox, Ui.full(c, 14));
@@ -876,10 +983,16 @@ public class MainActivity extends Activity {
                         mons = host.get("/api/pc/monitors").getJSONArray("monitors");
                         monitorsAt = System.currentTimeMillis();
                     } catch (HostClient.HttpError e) {
-                        // The PC revoked us (unlinked from the dashboard): show "not linked", don't auto re-link.
+                        // Refused. If the PC itself no longer lists a link, it unlinked us on purpose: show
+                        // "not linked" and don't auto re-link. If it still does (our key went stale, e.g.
+                        // after a reinstall), fetch a fresh key over the cable instead of dropping the link.
                         if (e.code == 401) {
-                            host.forget();
-                            mons = new JSONArray();
+                            JSONObject pcs = s != null ? s.optJSONObject("pc") : null;
+                            if (pcs != null && pcs.optBoolean("appLinked")) host.relinkOverCable();
+                            else {
+                                host.forget();
+                                mons = new JSONArray();
+                            }
                         }
                     } catch (Exception ignored) {
                     }
@@ -931,15 +1044,15 @@ public class MainActivity extends Activity {
         if (!paired) {
             boolean anyPc = found || !host.nearbyPcs().isEmpty();
             Ui.setTextSoft(linkStatus, pairId != null ? "■ WAITING FOR " + (pairName == null ? "THE PC" : pairName.toUpperCase())
-                    : anyPc ? "■ NOT LINKED YET" : "■ NO PC FOUND YET — START QUEST MIRROR ON YOUR PC (SAME WI-FI)");
+                    : anyPc ? "■ NOT LINKED YET" : "■ NO PC FOUND YET — START UTSUSHI ON YOUR PC (SAME WI-FI)");
             renderNearby();
             Ui.show(waitBox, pairId != null);
         }
 
         // ---------------- step 2: choose
-        Ui.setTextSoft(homeKicker, "■ STEP 2 OF 2 // LINKED TO " + nameOrPc().toUpperCase());
+        Ui.setTextSoft(homeKicker, "■ READY · LINKED TO " + nameOrPc().toUpperCase());
         if (!found) {
-            Ui.setTextSoft(tileAStatus, "PC OFFLINE — START QUEST MIRROR ON IT");
+            Ui.setTextSoft(tileAStatus, "PC OFFLINE — START UTSUSHI ON IT");
             setDot(tileADot, false);
         } else {
             Ui.setTextSoft(tileAStatus, monitors.length() + (monitors.length() == 1 ? " SCREEN READY" : " SCREENS READY"));
@@ -962,7 +1075,7 @@ public class MainActivity extends Activity {
         // ---------------- page A
         Ui.show(screensBox, found && paired);
         if (paired && !found) {
-            Ui.setTextSoft(pcState, "■ " + nameOrPc().toUpperCase() + " IS OFFLINE — START QUEST MIRROR ON THE PC");
+            Ui.setTextSoft(pcState, "■ " + nameOrPc().toUpperCase() + " IS OFFLINE — START UTSUSHI ON THE PC");
         } else if (paired) {
             Ui.setTextSoft(pcState, "■ LINKED TO " + nameOrPc().toUpperCase() + " · " + via + " · PICK A SCREEN TO OPEN");
             renderMonitors();
@@ -1173,7 +1286,7 @@ public class MainActivity extends Activity {
         scanner = new CameraScanner(this, new CameraScanner.Listener() {
             @Override
             public void onCode(String text) {
-                if (!linkFromText(text)) Ui.setTextSoft(scanState, "■ THAT CODE ISN'T FROM QUEST MIRROR — LOOK AT THE PC");
+                if (!linkFromText(text)) Ui.setTextSoft(scanState, "■ THAT CODE ISN'T FROM UTSUSHI — LOOK AT THE PC");
             }
 
             @Override
@@ -1392,6 +1505,48 @@ public class MainActivity extends Activity {
             final JSONObject m = monitors.optJSONObject(i);
             if (m != null) ui.postDelayed(() -> openScreen(m), i * 700L);
         }
+    }
+
+    /** UTSUSHI Space runs in the Quest Browser, served by the PC host. WebXR only starts on a secure
+     *  page and http://localhost counts as one: the ADB tunnel (cable or wireless ADB) maps it to the PC. */
+    private static final String SPACE_URL = "http://localhost:" + HostClient.PORT + "/space/";
+
+    private void openSpace() {
+        io.execute(() -> {
+            boolean tunnel = false;
+            try {
+                java.net.HttpURLConnection h = (java.net.HttpURLConnection) new java.net.URL(SPACE_URL).openConnection();
+                h.setConnectTimeout(1500);
+                h.setReadTimeout(2000);
+                tunnel = h.getResponseCode() == 200;
+                h.disconnect();
+            } catch (Exception ignored) {
+            }
+            // no PC: the headset serves the space itself (notes, models and scans stay on the Quest)
+            final String url = tunnel ? SPACE_URL : SpaceServer.start(this) ? SpaceServer.URL : null;
+            ui.post(() -> {
+                if (url == null) {
+                    toast("The space could not start. Restart UTSUSHI and try again.");
+                    return;
+                }
+                if (!url.equals(SPACE_URL)) toast("No PC found: the space runs on the Quest by itself.");
+                // the space's page takes the app's look and opens as one place to tap to enter
+                Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url + "?from=app" + (Ui.night ? "" : "&theme=paper")));
+                // the same tab every time (not a new tab per visit)
+                i.putExtra(android.provider.Browser.EXTRA_APPLICATION_ID, getPackageName());
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                i.setPackage("com.oculus.browser");
+                try {
+                    startActivity(i);
+                } catch (Exception e) {
+                    i.setPackage(null);
+                    startActivity(i);
+                }
+                // this panel steps aside: the space's own window (a live 3D gate) takes its place;
+                // a browser can only start an immersive space from a tap on its page
+                ui.postDelayed(() -> moveTaskToBack(true), 600);
+            });
+        });
     }
 
     private boolean optSetting(String key) {

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UTSUSHI design board</title>
+<style>
+  /* UTSUSHI · sumi ink on dark paper, one seal red. Every component in the space uses these. */
+  :root {
+    --bg: #0c0c0d; --win: rgba(18,18,19,0.9); --solid: #121213; --bg2: #1a1a1c; --bg3: #242427;
+    --ink: #ece5d6; --ink2: #a8a194; --ink3: #6f6a61; --line: rgba(236,229,214,0.10); --line2: rgba(236,229,214,0.22);
+    --seal: #e2472c; --onseal: #fff4ec; --gold: #c9a35a;
+    --ui: Roboto, "Segoe UI", system-ui, sans-serif; --mono: "Roboto Mono", Consolas, monospace;
+    --cut: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    --cut6: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--ui); padding: 40px; }
+  h1 { font: 600 28px var(--ui); margin: 0 0 6px; }
+  .lede { color: var(--ink3); margin: 0 0 36px; }
+  .label { font: 600 12px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--ink3); margin: 40px 0 14px; display: flex; gap: 12px; align-items: center; }
+  .label::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .scene { position: relative; background: radial-gradient(120% 90% at 50% 40%, #2a2724, #121110); border: 1px solid var(--line); overflow: hidden; }
+
+  /* ---- HUD tag + caption (one component for every pop-up: captions, gesture names, callouts) */
+  .tag { display: inline-flex; align-items: center; gap: 8px; font: 600 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; padding: 5px 9px; background: var(--seal); color: var(--onseal); }
+  .tag.ink { background: var(--ink); color: var(--solid); }
+  .tag.line { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line2); }
+  .hud { position: absolute; display: grid; gap: 0; min-width: 220px; }
+  .hud .body { background: var(--win); border: 1px solid var(--line2); padding: 10px 12px; font: 15px var(--ui); color: var(--ink); }
+  .hud .body small { display: block; color: var(--ink3); font: 12px var(--mono); margin-top: 2px; letter-spacing: .06em; }
+  .box { position: absolute; border: 1.5px solid var(--seal); }
+  .box::before, .box::after { content: ''; position: absolute; width: 12px; height: 12px; border: 2px solid var(--ink); }
+  .box::before { left: -4px; top: -4px; border-right: 0; border-bottom: 0; }
+  .box::after { right: -4px; bottom: -4px; border-left: 0; border-top: 0; }
+  .leader { position: absolute; height: 1.5px; background: var(--seal); transform-origin: 0 50%; }
+  .caption { display: inline-flex; align-items: stretch; background: var(--win); border: 1px solid var(--line2); clip-path: var(--cut6); }
+  .caption i { width: 4px; background: var(--seal); }
+  .caption span { padding: 9px 14px; font: 500 16px var(--ui); }
+  .caption em { font: 12px var(--mono); color: var(--ink3); font-style: normal; padding: 11px 12px 0 0; letter-spacing: .08em; }
+
+  /* ---- quick ring (radial at the hand) */
+  .ring { width: 360px; height: 300px; }
+  .ring svg { position: absolute; inset: 0; }
+  .tile { position: absolute; width: 58px; height: 58px; background: var(--solid); border: 1px solid var(--line2); clip-path: var(--cut6); display: grid; place-items: center; }
+  .tile svg { position: static; width: 26px; height: 26px; stroke: var(--ink); fill: none; stroke-width: 1.8; }
+  .tile.on { background: var(--ink); }
+  .tile.on svg { stroke: var(--solid); }
+  .tile .dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; background: var(--seal); }
+  .hub { position: absolute; left: 50%; transform: translateX(-50%); top: 196px; text-align: center; }
+
+  /* ---- window chrome */
+  .win { width: 560px; background: var(--win); border: 1px solid var(--line2); clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+  .win header { display: flex; align-items: center; gap: 12px; padding: 16px 20px 12px; border-bottom: 1px solid var(--line); }
+  .win header .seal { width: 9px; height: 9px; background: var(--seal); }
+  .win header b { font: 600 19px var(--ui); }
+  .win header small { color: var(--ink3); font-size: 13px; margin-left: 2px; }
+  .win header .sp { flex: 1; }
+  .win .content { padding: 18px 20px 20px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; background: var(--bg3); clip-path: var(--cut6); font: 600 14px var(--ui); color: var(--ink); }
+  .btn.p { background: var(--seal); color: var(--onseal); }
+  .btn.a { background: var(--ink); color: var(--solid); }
+  .rowitem { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .rowitem small { display: block; color: var(--ink3); font-size: 12px; }
+  .toggle { width: 46px; height: 22px; background: var(--seal); clip-path: var(--cut6); position: relative; }
+  .toggle::after { content: ''; position: absolute; right: 4px; top: 4px; width: 16px; height: 14px; background: var(--onseal); }
+  .chrome-under { display: flex; justify-content: center; gap: 12px; align-items: center; margin-top: 12px; }
+  .chrome-under .x { width: 22px; height: 22px; border: 1px solid var(--line2); display: grid; place-items: center; font-size: 12px; background: var(--solid); clip-path: var(--cut6); }
+  .chrome-under .bar { width: 96px; height: 5px; background: var(--ink); opacity: .7; }
+
+  /* ---- wrist panel */
+  .wrist { width: 260px; background: var(--win); border: 1px solid var(--line2); clip-path: var(--cut6); }
+  .wrist .t { padding: 12px 14px 8px; display: flex; justify-content: space-between; align-items: baseline; }
+  .wrist .t b { font: 600 34px var(--ui); letter-spacing: -.01em; }
+  .wrist .t small { font: 12px var(--mono); color: var(--ink3); }
+  .wrist .bat { margin: 0 14px; height: 3px; background: var(--line2); }
+  .wrist .bat i { display: block; width: 64%; height: 100%; background: var(--ink2); }
+  .wrist .q { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 12px 14px 14px; }
+  .wrist .q div { height: 44px; background: var(--bg3); clip-path: var(--cut6); display: grid; place-items: center; }
+  .wrist .q svg { width: 20px; height: 20px; stroke: var(--ink); fill: none; stroke-width: 1.8; }
+
+  /* ---- model stage (miniature) */
+  .stage { width: 520px; height: 300px; }
+  .plinth { position: absolute; left: 90px; right: 90px; bottom: 40px; height: 34px; border: 1px solid var(--line2); background: linear-gradient(var(--bg2), var(--solid)); }
+  .grid { position: absolute; left: 90px; right: 90px; bottom: 74px; height: 120px; transform: perspective(300px) rotateX(62deg); transform-origin: bottom; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 22px 22px; border: 1px solid var(--line2); }
+  .model { position: absolute; left: 50%; bottom: 96px; width: 90px; height: 120px; transform: translateX(-50%); }
+
+  /* ---- scanner */
+  .scan { width: 360px; height: 300px; }
+  .pts { position: absolute; inset: 70px 110px 70px 110px; background-image: radial-gradient(var(--ink) 1px, transparent 1.5px); background-size: 7px 7px; opacity: .55; clip-path: ellipse(48% 46% at 50% 55%); }
+</style>
+</head>
+<body>
+<h1>UTSUSHI — design board</h1>
+<p class="lede">One language for everything in the space: ink on dark paper, one seal red, hairlines, small cut corners, mono tags for system voice, sentence case for content. References were inspiration only.</p>
+
+<div class="label">01 · pop-ups: one component (captions, gesture names, callouts)</div>
+<div class="row">
+  <div class="scene" style="width:560px;height:220px">
+    <div style="position:absolute;left:30px;top:30px"><span class="tag">palm up</span></div>
+    <div style="position:absolute;left:30px;top:62px"><div class="caption"><i></i><span>Launcher opened at your hand</span><em>14:02</em></div></div>
+    <div style="position:absolute;left:30px;top:120px"><span class="tag ink">saved</span>&nbsp; <span class="tag line">photo · 2048×1152</span></div>
+    <div class="box" style="left:330px;top:40px;width:150px;height:120px"></div>
+    <div class="leader" style="left:480px;top:160px;width:30px;transform:rotate(40deg)"></div>
+    <div class="hud" style="left:330px;top:176px;min-width:200px"><span class="tag">esp32 · com5</span></div>
+  </div>
+  <div style="max-width:420px;color:var(--ink2)">
+    <p><b style="color:var(--ink)">Tag</b> — the system's voice: 12 px mono caps in a seal block. Gesture names, states, "saved".</p>
+    <p><b style="color:var(--ink)">Caption</b> — sentence-case message with a seal stripe. Always the same place: under the centre of view, follows lazily.</p>
+    <p><b style="color:var(--ink)">Callout</b> — bracket box around a thing + leader line + tag + body. Used by Models, Scanner, Devices.</p>
+  </div>
+</div>
+
+<div class="label">02 · quick ring (opens at your hand: palm up, or the controller menu button)</div>
+<div class="row">
+  <div class="scene ring">
+    <svg viewBox="0 0 360 300" fill="none">
+      <path d="M60 230 A120 120 0 0 1 300 230" stroke="rgba(236,229,214,.22)" stroke-width="1.5"/>
+      <path d="M40 236 A142 142 0 0 1 320 236" stroke="rgba(236,229,214,.10)" stroke-width="1" stroke-dasharray="2 7"/>
+      <path d="M118 128 A120 120 0 0 1 242 128" stroke="#e2472c" stroke-width="2.5"/>
+      <circle cx="180" cy="250" r="6" fill="#ece5d6"/>
+    </svg>
+    <div class="tile" style="left:30px;top:178px"><svg viewBox="0 0 24 24"><path d="M3 8V4h4M17 4h4v4M21 16v4h-4M7 20H3v-4"/></svg></div>
+    <div class="tile" style="left:62px;top:106px"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM8 9h8M8 13h8"/></svg></div>
+    <div class="tile on" style="left:151px;top:72px"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="dot"></span></div>
+    <div class="tile" style="left:240px;top:106px"><svg viewBox="0 0 24 24"><path d="M8 8h8v8H8zM3 12h3M18 12h3M12 3v3M12 18v3"/></svg></div>
+    <div class="tile" style="left:272px;top:178px"><svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11z"/></svg></div>
+    <div class="hub"><span class="tag ink">all apps</span></div>
+  </div>
+  <div style="max-width:420px;color:var(--ink2)">
+    <p>Five cut-square tiles on an arc above your hand: <b style="color:var(--ink)">Camera · New note · All apps · Center · Room/Void</b>.</p>
+    <p>Point at a tile (or tilt the thumbstick) — it fills with ink and its name shows as a tag at the hub; pinch / trigger to choose. Closes when you lower your hand.</p>
+    <p>The red arc marks the item under your pointer; dashed outer ring is the "reach".</p>
+  </div>
+</div>
+
+<div class="label">03 · window chrome and content rhythm</div>
+<div class="row">
+  <div>
+    <div class="win">
+      <header><span class="seal"></span><b>Notes</b><small>Saved on the PC as you go</small><span class="sp"></span><span class="btn p">+ New note</span></header>
+      <div class="content">
+        <div class="rowitem"><div>Surroundings<small>Room shows your real room · Void is a quiet garden</small></div><span class="btn a">Room</span></div>
+        <div class="rowitem"><div>Interface sounds<small>Clicks, opens, the shutter</small></div><span class="toggle"></span></div>
+        <div style="margin-top:16px;display:flex;gap:8px"><span class="btn">Type</span><span class="btn a">Pencil</span><span class="btn">3D</span></div>
+      </div>
+    </div>
+    <div class="chrome-under"><span class="x">✕</span><span class="bar"></span></div>
+  </div>
+  <div style="max-width:420px;color:var(--ink2)">
+    <p>Header: seal square · name (sentence case) · one line of context · actions right. One hairline under it.</p>
+    <p>Rows breathe (rows 92 px in 3D), description under each label, the control on the right. Selected = ink fill; primary = seal fill; everything else = one grey.</p>
+    <p>Under the window: ✕ square and a slim bar — both light up when pointed at.</p>
+  </div>
+</div>
+
+<div class="label">04 · wrist panel · 05 · model stage · 06 · scanner</div>
+<div class="row">
+  <div class="wrist">
+    <div class="t"><b>14:02</b><small>SAT 31 · 64%</small></div>
+    <div class="bat"><i></i></div>
+    <div class="q">
+      <div><svg viewBox="0 0 24 24"><path d="M3 8V4h4M17 4h4v4M21 16v4h-4M7 20H3v-4"/></svg></div>
+      <div><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/></svg></div>
+      <div><svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11z"/></svg></div>
+      <div><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+    </div>
+  </div>
+  <div class="scene stage">
+    <div class="grid"></div><div class="plinth"></div>
+    <svg class="model" viewBox="0 0 90 120" fill="none" stroke="#ece5d6" stroke-width="1.4"><path d="M45 6 80 26v50L45 114 10 76V26z"/><path d="M10 26l35 20 35-20M45 46v68"/></svg>
+    <div class="box" style="left:205px;top:80px;width:110px;height:140px;border-color:rgba(236,229,214,.35)"></div>
+    <div class="leader" style="left:315px;top:80px;width:40px;transform:rotate(-30deg)"></div>
+    <div class="hud" style="left:348px;top:44px;min-width:160px"><span class="tag">model · chair.glb</span><div class="body">0.48 × 0.81 × 0.52 m<small>12 480 TRIS · 3 MATERIALS</small></div></div>
+    <div style="position:absolute;left:24px;bottom:12px"><span class="tag line">scale 1 : 4</span></div>
+  </div>
+  <div class="scene scan">
+    <div class="pts"></div>
+    <div class="box" style="left:96px;top:56px;width:168px;height:188px"></div>
+    <div style="position:absolute;left:96px;top:30px"><span class="tag">scanning · 38%</span></div>
+    <div style="position:absolute;right:16px;bottom:14px"><span class="tag line">12 840 points</span></div>
+  </div>
+</div>
+</body>
+</html>

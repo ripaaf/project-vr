@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UTSUSHI Linux: a small companion to UTSUSHI that keeps a real Linux (Alpine, run with proot) for
+     the Terminal, so packages can be installed (apk add …). It targets Android 9 on purpose: newer
+     targets may not run programs they download, and a package manager is exactly that. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.questmirror.linux">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- your files, at /sdcard inside Linux -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+    <!-- only apps signed like this one (UTSUSHI) may start it -->
+    <permission
+        android:name="com.questmirror.linux.permission.RUN"
+        android:protectionLevel="signature" />
+
+    <application
+        android:label="UTSUSHI Linux"
+        android:icon="@drawable/ic_linux"
+        android:extractNativeLibs="true"
+        android:requestLegacyExternalStorage="true"
+        android:allowBackup="false">
+        <service
+            android:name=".LinuxService"
+            android:exported="true"
+            android:permission="com.questmirror.linux.permission.RUN" />
+    </application>
+</manifest>

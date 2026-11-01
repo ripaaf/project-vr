@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Quest Mirror</string>
-    <string name="service_name">Quest Mirror panel control</string>
-    <string name="service_description">Lets people watching your Quest Mirror stream click, scroll and type inside 2D app panels (Browser, YouTube, TV…) when you allow remote control. Nothing is collected or sent anywhere except to the Quest Mirror app on your own PC.</string>
+    <string name="app_name">UTSUSHI</string>
+    <string name="service_name">UTSUSHI panel control</string>
+    <string name="service_description">Lets people watching your UTSUSHI stream click, scroll and type inside 2D app panels (Browser, YouTube, TV…) when you allow remote control. Nothing is collected or sent anywhere except to the UTSUSHI app on your own PC.</string>
 </resources>

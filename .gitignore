@@ -1,6 +1,9 @@
 host/config.json
 quest-app/build/
 quest-app/*.keystore
+quest-linux/build/
 node_modules/
 windows-app/build/
 contoh_gambar/
+host/photos/
+host/models/

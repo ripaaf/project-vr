@@ -220,10 +220,10 @@ final class Ui {
         return t;
     }
 
-    /** "QUEST/MIRROR" with the slash in signal red. */
+    /** "UTSUSHI/写し" with the slash in signal red. */
     static CharSequence wordmark() {
-        SpannableString s = new SpannableString("QUEST/MIRROR");
-        s.setSpan(new ForegroundColorSpan(SIGNAL), 5, 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        SpannableString s = new SpannableString("UTSUSHI/写し");
+        s.setSpan(new ForegroundColorSpan(SIGNAL), 7, 8, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         return s;
     }
 
@@ -694,7 +694,7 @@ final class Ui {
 
     /** Simple line icons drawn in ink + signal red (no emoji, so they match the style). */
     static final class Glyph extends View {
-        static final int MONITOR = 0, CAST = 1, QR = 2, PLUG = 3, CHECK = 4;
+        static final int MONITOR = 0, CAST = 1, QR = 2, PLUG = 3, CHECK = 4, ENSO = 5;
         private final int kind;
         private final int sizeDp;
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -769,6 +769,16 @@ final class Ui {
                     p.setStrokeWidth(4 * u);
                     c.drawLine(10 * u, 25 * u, 20 * u, 35 * u, p);
                     c.drawLine(20 * u, 35 * u, 39 * u, 14 * u, p);
+                    break;
+                case ENSO:
+                    // UTSUSHI's mark: an open brush circle with a red seal
+                    p.setStrokeCap(Paint.Cap.ROUND);
+                    p.setStrokeWidth(4 * u);
+                    c.drawArc(new RectF(6 * u, 6 * u, 40 * u, 40 * u), 235, 300, false, p);
+                    p.setStrokeCap(Paint.Cap.SQUARE);
+                    p.setStyle(Paint.Style.FILL);
+                    p.setColor(SIGNAL);
+                    c.drawRect(33 * u, 33 * u, 43 * u, 43 * u, p);
                     break;
             }
         }

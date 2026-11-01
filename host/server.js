@@ -13,6 +13,11 @@ const { Control } = require('./lib/control');
 const { PcScreens } = require('./lib/pcscreen');
 const { PcAudio } = require('./lib/pcaudio');
 const autostart = require('./lib/autostart');
+const { Space } = require('./lib/space');
+const { SerialLink } = require('./lib/serial');
+const { Files } = require('./lib/files');
+const { WebView } = require('./lib/webview');
+const refiner = require('./lib/refine');
 const { spawn } = require('child_process');
 
 const VERSION = '1.0.0';
@@ -31,6 +36,8 @@ const UI_BUILD = (() => {
   return h.digest('hex').slice(0, 10);
 })();
 const APK_PATH = process.env.QM_APK || path.join(__dirname, '..', 'quest-app', 'build', 'quest-mirror.apk');
+// UTSUSHI Linux (the Terminal's Alpine) rides along; it goes on first, since UTSUSHI asks for its permission
+const LINUX_APK_PATH = process.env.QM_LINUX_APK || path.join(__dirname, '..', 'quest-linux', 'build', 'utsushi-linux.apk');
 // Set when the Windows app (QuestMirror.exe) runs this host: it opens and raises the app window.
 const APP_EXE = process.env.QM_APP_EXE || '';
 const LINGER_MS = 15000; // keep capturing briefly after the last viewer leaves so reloads are instant
@@ -56,6 +63,13 @@ const hub = new MjpegHub(() => config.get().maxFps);
 const control = new Control(devices, AGENT_PORT);
 const pc = new PcScreens({ ffmpegBin, config });
 const pcAudio = new PcAudio();
+// Where photos and 3D models live: next to the settings (the Windows app keeps them in %APPDATA%).
+const DATA_DIR = process.env.QM_CONFIG ? path.dirname(process.env.QM_CONFIG) : path.join(__dirname);
+const NOTES_DIR = path.join(DATA_DIR, 'notes');
+const space = new Space({ adb, adbBin, ffmpegBin, devices, dataDir: DATA_DIR, port: PORT });
+const serial = new SerialLink();
+const files = new Files({ adbBin, ffmpegBin, devices });
+const web = new WebView({ dataDir: DATA_DIR });
 
 capture.on('frame', (f) => hub.push(f));
 capture.on('state', (s, m) => console.log(`[capture] ${s}${m ? ': ' + m : ''}`));
@@ -206,12 +220,17 @@ setInterval(() => {
 let installing = null;
 const installTried = new Map(); // serial|apk fingerprint -> last attempt
 function apkFingerprint() {
-  try {
-    const st = fs.statSync(APK_PATH);
-    return `${st.size}-${Math.round(st.mtimeMs)}`;
-  } catch {
-    return null;
-  }
+  const fp = (p) => {
+    try {
+      const st = fs.statSync(p);
+      return `${st.size}-${Math.round(st.mtimeMs)}`;
+    } catch {
+      return null;
+    }
+  };
+  const app = fp(APK_PATH);
+  const linux = fp(LINUX_APK_PATH);
+  return app && (linux ? `${app}+${linux}` : app);
 }
 async function autoInstall() {
   const d = devices.current;
@@ -226,6 +245,10 @@ async function autoInstall() {
   installing = d.serial;
   console.log(`[setup] ${devices.info.appInstalled ? 'updating' : 'installing'} the Quest app on ${d.serial}…`);
   try {
+    if (fs.existsSync(LINUX_APK_PATH)) {
+      const lx = await adb.run(['-s', d.serial, 'install', '-r', '-g', LINUX_APK_PATH], { timeout: 120000 }).catch((e) => e.message);
+      if (!/Success/.test(lx)) console.warn('[setup] UTSUSHI Linux:', String(lx).trim().split(/\r?\n/).pop());
+    }
     const out = await adb.run(['-s', d.serial, 'install', '-r', '-g', APK_PATH], { timeout: 120000 });
     if (/Success/.test(out)) {
       config.update({ apkInstalled: { ...(config.get().apkInstalled || {}), [d.serial]: fp } });
@@ -266,14 +289,14 @@ function popDashboard(hash) {
   // Windows keeps a browser opened by a background app behind the current window; raise it.
   const raise = (tries) =>
     setTimeout(async () => {
-      if (!(await pc.bringToFront('Quest Mirror')) && tries > 1) raise(tries - 1);
+      if (!(await pc.bringToFront('UTSUSHI')) && tries > 1) raise(tries - 1);
     }, 1200);
   const open = () => {
     spawn('cmd.exe', ['/c', 'start', '""', `http://localhost:${PORT}/${hash}`], { windowsHide: true, stdio: 'ignore', detached: true }).unref();
     raise(3);
   };
   // A dashboard that's only behind other windows comes forward instead of piling up another tab.
-  if (localDashboards > 0) pc.bringToFront('Quest Mirror').then((ok) => ok || open());
+  if (localDashboards > 0) pc.bringToFront('UTSUSHI').then((ok) => ok || open());
   else open();
   return true;
 }
@@ -287,9 +310,16 @@ const MIME = {
   '.json': 'application/json',
   '.webmanifest': 'application/manifest+json',
   '.ico': 'image/x-icon',
+  '.glb': 'model/gltf-binary',
+  '.jpg': 'image/jpeg',
 };
 function serveStatic(req, res, pathname) {
-  const rel = pathname === '/' ? 'index.html' : decodeURIComponent(pathname.slice(1));
+  // /space -> /space/ so the page's relative imports resolve; folders serve their index.html
+  if (pathname === '/space') {
+    res.writeHead(301, { Location: '/space/' });
+    return res.end();
+  }
+  const rel = pathname === '/' ? 'index.html' : decodeURIComponent(pathname.slice(1)) + (pathname.endsWith('/') ? 'index.html' : '');
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) return fail(res, 403, 'Forbidden');
   fs.readFile(file, (err, data) => {
@@ -299,7 +329,7 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-/** http://PC:8765/link?c=CODE -> opens the Quest Mirror app (intent link) to pair with that code. */
+/** http://PC:8765/link?c=CODE -> opens the UTSUSHI app (intent link) to pair with that code. */
 function serveLinkPage(req, res, url) {
   const code = (url.searchParams.get('c') || '').replace(/\D/g, '').slice(0, 6);
   const hostHeader = (req.headers.host || `localhost:${PORT}`).replace(/[^\w.:-]/g, '');
@@ -307,7 +337,7 @@ function serveLinkPage(req, res, url) {
   const deep = `pair?h=${encodeURIComponent(hostHeader)}&c=${code}&n=${encodeURIComponent(name)}`;
   const intent = `intent://${deep}#Intent;scheme=questmirror;package=com.questmirror.app;end`;
   const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Link Quest Mirror</title><style>
+<title>Link UTSUSHI</title><style>
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:#e7e6e1;color:#0f1012;font:500 18px/1.4 "Bahnschrift","Arial Narrow",system-ui,sans-serif;
 background-image:radial-gradient(rgba(15,16,18,.2) 1px,transparent 1.2px);background-size:24px 24px}
 .c{width:min(520px,92vw);background:#f3f2ed;border:2px solid #0f1012;padding:28px;clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px)}
@@ -315,8 +345,8 @@ background-image:radial-gradient(rgba(15,16,18,.2) 1px,transparent 1.2px);backgr
 a{display:block;margin-top:20px;padding:20px;text-align:center;background:#0f1012;color:#f3f2ed;font:700 18px Consolas,monospace;letter-spacing:.1em;text-decoration:none}
 a:active{background:#ff3b1f}p{color:#45474d;margin:0}</style></head><body><div class="c">
 <div class="m">■ LINK // ${name.toUpperCase()}</div><h1>Link your Quest</h1>
-<p>Opening Quest Mirror on the headset… If nothing happens, press the button.</p>
-<a href="${intent}">OPEN QUEST MIRROR →</a></div>
+<p>Opening UTSUSHI on the headset… If nothing happens, press the button.</p>
+<a href="${intent}">OPEN UTSUSHI →</a></div>
 <script>setTimeout(function(){location.href=${JSON.stringify(intent)}},400)</script></body></html>`;
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(page);
@@ -361,7 +391,8 @@ async function handle(req, res) {
   if (p === '/api/pc/scan-hint' && method === 'POST') {
     const { device } = await readBody(req);
     scanHint = { at: Date.now(), device: String(device || 'Quest').replace(/[^\w .()-]/g, '').slice(0, 40) || 'Quest' };
-    if (!config.get().pcLinkedAt && Date.now() - lastHintPop > 60000 && popDashboard('#link')) lastHintPop = Date.now();
+    // a scanning app needs a link, even if this PC still remembers an old one (e.g. the app was reinstalled)
+    if (Date.now() - lastHintPop > 30000 && popDashboard('#link')) lastHintPop = Date.now();
     return json(res, 200, { ok: true });
   }
   if (p === '/api/pc/pair-decide' && method === 'POST') {
@@ -384,8 +415,24 @@ async function handle(req, res) {
     if (method === 'POST' && p === '/api/pc/unlink') {
       pc.revoke();
       pcAudio.dropAll();
+      web.stop();
       appSeenAt = 0;
       return json(res, 200, { ok: true });
+    }
+    // the space's web browser (a headless Edge on this PC): linked headset only
+    if (p.startsWith('/api/pc/web/')) {
+      if (!hasPcToken(req)) return fail(res, 401, 'Not linked with this PC');
+      if (!web.supported) return fail(res, 501, 'Web needs Edge or Chrome on this PC');
+      if (method === 'GET' && p === '/api/pc/web/stream') return web.stream(req, res);
+      if (method === 'POST' && p === '/api/pc/web/input') {
+        web.input((await readBody(req)).events);
+        return json(res, 200, { ok: true });
+      }
+      if (method === 'POST' && p === '/api/pc/web/stop') {
+        web.stop();
+        return json(res, 200, { ok: true });
+      }
+      return fail(res, 404, 'Not found');
     }
     if (!config.get().pcShare) return fail(res, 403, 'Screen sharing to the Quest is turned off on the PC');
     if (method === 'GET' && p === '/api/pc/monitors') return json(res, 200, { monitors: await pc.monitors(url.searchParams.has('refresh')) });
@@ -398,7 +445,157 @@ async function handle(req, res) {
       });
     }
     if (method === 'POST' && p === '/api/pc/input') return pc.inputStream(req, res);
+    // Browsers can't stream a request body over plain HTTP/1.1: the space sends small batches instead.
+    if (method === 'POST' && p === '/api/pc/input-batch') {
+      const { lines } = await readBody(req);
+      for (const line of Array.isArray(lines) ? lines.slice(0, 200) : []) await pc.input(String(line)).catch(() => {});
+      return json(res, 200, { ok: true });
+    }
     if (method === 'GET' && p === '/api/pc/audio') return pcAudio.stream(req, res);
+    return fail(res, 404, 'Not found');
+  }
+
+  // ---- UTSUSHI Space (the immersive world): only this PC or the linked headset over the cable tunnel.
+  // ---- Files (the space's explorer): the headset's storage and this PC's folders. Owner only.
+  if (p.startsWith('/api/files/')) {
+    if (!isOwner(req)) return fail(res, 403, 'Files only open on this PC or the linked headset');
+    const qs = url.searchParams;
+    const src = qs.get('src') === 'quest' ? 'quest' : 'pc';
+    if (method === 'GET' && p === '/api/files/roots') return json(res, 200, files.roots());
+    if (method === 'GET' && p === '/api/files/list') return json(res, 200, await files.list(src, qs.get('path')));
+    if (method === 'GET' && p === '/api/files/search') return json(res, 200, await files.search(src, qs.get('path'), qs.get('q')));
+    if (method === 'GET' && p === '/api/files/raw') return files.raw(src, qs.get('path'), req, res);
+    if (method === 'GET' && p === '/api/files/thumb') {
+      const jpg = await files.thumb(src, qs.get('path'));
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'max-age=600' });
+      return res.end(jpg);
+    }
+    const b = method === 'POST' ? await readBody(req) : {};
+    const bsrc = b.src === 'quest' ? 'quest' : 'pc';
+    if (method === 'POST' && p === '/api/files/mkdir') return (await files.mkdir(bsrc, b.dir, b.name), json(res, 200, { ok: true }));
+    if (method === 'POST' && p === '/api/files/rename') return (await files.rename(bsrc, b.path, b.name), json(res, 200, { ok: true }));
+    if (method === 'POST' && p === '/api/files/delete') return (await files.remove(bsrc, b.paths), json(res, 200, { ok: true }));
+    if (method === 'POST' && p === '/api/files/copy') return (await files.copy(bsrc, b.paths, b.dest, !!b.move), json(res, 200, { ok: true }));
+    return fail(res, 404, 'Not found');
+  }
+
+  if (p.startsWith('/api/space/') || p.startsWith('/api/serial/')) {
+    if (!isOwner(req)) return fail(res, 403, 'The space only runs on this PC or the linked headset');
+    if (method === 'GET' && p === '/api/space/stats') {
+      return json(res, 200, await space.stats({
+        link: { linked: !!config.get().pcLinkedAt, online: Date.now() - appSeenAt < 8000 },
+        mirror: { viewers: hub.viewerCount, state: capture.status().state, paused: config.get().paused },
+        serial: serial.state,
+        urls: lanUrls().filter((u) => !u.virtual).map((u) => u.url),
+      }));
+    }
+    if (method === 'POST' && p === '/api/space/shell') return json(res, 200, { id: space.openShell() });
+    if (method === 'GET' && p === '/api/space/shell/stream') {
+      if (!space.streamShell(url.searchParams.get('id') || '', req, res)) return fail(res, 404, 'Shell ended');
+      return;
+    }
+    if (method === 'POST' && p === '/api/space/shell/input') {
+      const b = await readBody(req);
+      return space.shellInput(String(b.id || ''), String(b.line || '')) ? json(res, 200, { ok: true }) : fail(res, 404, 'Shell ended');
+    }
+    if (method === 'POST' && p === '/api/space/shell/close') {
+      space.closeShell(String((await readBody(req)).id || ''));
+      return json(res, 200, { ok: true });
+    }
+    if (method === 'POST' && p === '/api/space/snap') return json(res, 200, await space.snap((await readBody(req)).rect));
+    if (method === 'GET' && p === '/api/space/photos') return json(res, 200, { photos: space.photos() });
+    if (method === 'GET' && p.startsWith('/api/space/photo/')) {
+      const f = space.photoFile(decodeURIComponent(p.slice('/api/space/photo/'.length)));
+      if (!f || !fs.existsSync(f)) return fail(res, 404, 'No such photo');
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'max-age=86400' });
+      return fs.createReadStream(f).pipe(res);
+    }
+    // notes (3D Notes app): one JSON file per note in the data folder
+    if (p === '/api/space/notes' && method === 'GET') {
+      fs.mkdirSync(NOTES_DIR, { recursive: true });
+      const list = fs.readdirSync(NOTES_DIR).filter((f) => /^[a-z0-9-]{6,40}\.json$/.test(f)).map((f) => {
+        try {
+          const n = JSON.parse(fs.readFileSync(path.join(NOTES_DIR, f), 'utf8'));
+          return { id: n.id, title: n.title || 'Untitled', updated: n.updated || 0, preview: String(n.text || '').slice(0, 120), photos: (n.photos || []).length };
+        } catch {
+          return null;
+        }
+      }).filter(Boolean).sort((x, y) => y.updated - x.updated);
+      return json(res, 200, { notes: list });
+    }
+    const noteMatch = /^\/api\/space\/note\/([a-z0-9-]{6,40})$/.exec(p);
+    if (noteMatch) {
+      const file = path.join(NOTES_DIR, `${noteMatch[1]}.json`);
+      if (method === 'GET') {
+        if (!fs.existsSync(file)) return fail(res, 404, 'No such note');
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        return fs.createReadStream(file).pipe(res);
+      }
+      if (method === 'POST') {
+        const n = await readBody(req, 4 * 1024 * 1024); // strokes add up
+        n.id = noteMatch[1];
+        n.updated = Date.now();
+        fs.mkdirSync(NOTES_DIR, { recursive: true });
+        fs.writeFileSync(file, JSON.stringify(n));
+        return json(res, 200, { ok: true, updated: n.updated });
+      }
+      if (method === 'DELETE') {
+        if (fs.existsSync(file)) await files.remove('pc', [file]);
+        return json(res, 200, { ok: true });
+      }
+    }
+    // photos: small previews for the gallery, and delete (to the Recycle Bin)
+    if (method === 'GET' && p.startsWith('/api/space/photo-thumb/')) {
+      const f = space.photoFile(decodeURIComponent(p.slice('/api/space/photo-thumb/'.length)));
+      if (!f || !fs.existsSync(f)) return fail(res, 404, 'No such photo');
+      const jpg = await files.thumb('pc', f);
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'max-age=86400' });
+      return res.end(jpg);
+    }
+    if (method === 'POST' && p === '/api/space/photo-delete') {
+      const f = space.photoFile(String((await readBody(req)).name || ''));
+      if (!f || !fs.existsSync(f)) return fail(res, 404, 'No such photo');
+      await files.remove('pc', [f]);
+      return json(res, 200, { ok: true });
+    }
+    if (method === 'GET' && p === '/api/space/models') return json(res, 200, { models: space.models() });
+    if (method === 'GET' && p.startsWith('/api/space/model/')) {
+      const f = space.modelFile(decodeURIComponent(p.slice('/api/space/model/'.length)));
+      if (!f || !fs.existsSync(f)) return fail(res, 404, 'No such model');
+      res.writeHead(200, { 'Content-Type': space.modelType(f), 'Cache-Control': 'no-cache' });
+      return fs.createReadStream(f).pipe(res);
+    }
+    if (method === 'POST' && p === '/api/space/model-save') return json(res, 200, space.saveScan((await readBody(req, 40 * 1024 * 1024)).ply));
+    // refining a scan with LingBot-Map on this PC (when it is installed)
+    if (method === 'GET' && p === '/api/space/refine/status') return json(res, 200, { available: refiner.available() });
+    if (method === 'POST' && p === '/api/space/refine') return json(res, 200, await refiner.refine(await readBody(req, 80 * 1024 * 1024), space.modelsDir));
+    if (method === 'POST' && p === '/api/space/model-delete') {
+      const f = space.modelFile(String((await readBody(req)).file || ''));
+      if (!f || !fs.existsSync(f)) return fail(res, 404, 'No such model');
+      await files.remove('pc', [f]);
+      return json(res, 200, { ok: true });
+    }
+    if (method === 'POST' && p === '/api/space/launch') {
+      await space.launch();
+      return json(res, 200, { ok: true });
+    }
+    // device link (ESP32 / Cardputer over USB serial on this PC)
+    if (!serial.supported()) return fail(res, 501, 'The device link needs the host on Windows');
+    if (method === 'GET' && p === '/api/serial/ports') return json(res, 200, { ports: await serial.ports(), state: serial.state });
+    if (method === 'GET' && p === '/api/serial/stream') return serial.stream(req, res);
+    if (method === 'POST' && p === '/api/serial/open') {
+      const b = await readBody(req);
+      await serial.open(String(b.port || ''), b.baud);
+      return json(res, 200, { ok: true });
+    }
+    if (method === 'POST' && p === '/api/serial/send') {
+      await serial.send((await readBody(req)).text || '');
+      return json(res, 200, { ok: true });
+    }
+    if (method === 'POST' && p === '/api/serial/close') {
+      serial.close();
+      return json(res, 200, { ok: true });
+    }
     return fail(res, 404, 'Not found');
   }
 
@@ -579,7 +776,7 @@ server.listen(PORT, '0.0.0.0', () => {
   devices.start();
   if (pc.supported) pc.startDiscovery(PORT);
   const urls = lanUrls().filter((u) => !u.virtual);
-  console.log(`\n  Quest Mirror host ${VERSION}`);
+  console.log(`\n  UTSUSHI host ${VERSION}`);
   console.log(`  adb:    ${adbBin}`);
   console.log(`  ffmpeg: ${ffmpegBin}\n`);
   console.log(`  This PC:        http://localhost:${PORT}`);
@@ -601,10 +798,13 @@ function shutdown() {
   capture.stop();
   pc.stopAll();
   pcAudio.stop();
+  serial.stop();
+  web.stop();
   const done = () => process.exit(0);
   if (config.get().keepAwake && devices.current) control.setKeepAwake(false).then(done, done);
   else setTimeout(done, 500);
   setTimeout(done, 3000);
 }
+process.on('exit', () => web.killNow());
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);

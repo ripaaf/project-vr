@@ -8,22 +8,29 @@ namespace QuestMirror
     {
         public static string StartMenu
         {
-            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Quest Mirror.lnk"); }
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "UTSUSHI.lnk"); }
         }
 
         public static string Desktop
         {
-            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Quest Mirror.lnk"); }
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "UTSUSHI.lnk"); }
         }
 
         /// <summary>Same file the dashboard's "Start with Windows" switch uses, so both stay in sync.</summary>
         public static string Startup
         {
-            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "Quest Mirror.lnk"); }
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "UTSUSHI.lnk"); }
+        }
+
+        /// <summary>The same shortcut under the app's old name (before it became UTSUSHI).</summary>
+        static string Old(string link)
+        {
+            return Path.Combine(Path.GetDirectoryName(link), "Quest Mirror.lnk");
         }
 
         public static void Create(string link, string target, string args, string description)
         {
+            Remove(Old(link));
             Type t = Type.GetTypeFromProgID("WScript.Shell");
             dynamic shell = Activator.CreateInstance(t);
             dynamic s = shell.CreateShortcut(link);
@@ -38,23 +45,26 @@ namespace QuestMirror
 
         public static void Remove(string link)
         {
-            try
+            foreach (var f in new[] { link, Old(link) })
             {
-                if (File.Exists(link)) File.Delete(link);
-            }
-            catch
-            {
+                try
+                {
+                    if (File.Exists(f)) File.Delete(f);
+                }
+                catch
+                {
+                }
             }
         }
 
         public static bool StartsWithWindows
         {
-            get { return File.Exists(Startup); }
+            get { return File.Exists(Startup) || File.Exists(Old(Startup)); }
         }
 
         public static void SetStartWithWindows(bool on, string exe)
         {
-            if (on) Create(Startup, exe, "--background", "Quest Mirror (starts in the tray)");
+            if (on) Create(Startup, exe, "--background", "UTSUSHI (starts in the tray)");
             else Remove(Startup);
         }
     }

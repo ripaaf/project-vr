@@ -10,8 +10,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-[assembly: System.Reflection.AssemblyTitle("Quest Mirror")]
-[assembly: System.Reflection.AssemblyProduct("Quest Mirror")]
+[assembly: System.Reflection.AssemblyTitle("UTSUSHI")]
+[assembly: System.Reflection.AssemblyProduct("UTSUSHI")]
 [assembly: System.Reflection.AssemblyDescription("Your PC in your Quest, your Quest on any screen")]
 [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
 [assembly: System.Reflection.AssemblyFileVersion("1.0.0.0")]
@@ -193,7 +193,7 @@ namespace QuestMirror
             External = false;
             if (!File.Exists(Paths.Node) || !File.Exists(Path.Combine(Paths.HostDir, "server.js")))
             {
-                if (Failed != null) Failed("Quest Mirror files are missing. Please run the setup again.");
+                if (Failed != null) Failed("UTSUSHI files are missing. Please run the setup again.");
                 return;
             }
             Directory.CreateDirectory(Paths.Local);
@@ -237,7 +237,7 @@ namespace QuestMirror
                 Thread.Sleep(wait);
                 if (!stopping && proc == p) Start();
             });
-            if (crashes == 3 && Failed != null) Failed("The Quest Mirror host keeps stopping. Open the log from the tray menu to see why.");
+            if (crashes == 3 && Failed != null) Failed("The UTSUSHI host keeps stopping. Open the log from the tray menu to see why.");
         }
 
         public void Stop()
@@ -315,13 +315,14 @@ namespace QuestMirror
             icon = new NotifyIcon
             {
                 Icon = Brand.MakeIcon(Math.Max(16, SystemInformation.SmallIconSize.Width)),
-                Text = "Quest Mirror — starting…",
+                Text = "UTSUSHI — starting…",
                 Visible = true,
             };
             var menu = new ContextMenuStrip();
-            var open = new ToolStripMenuItem("Open Quest Mirror", null, (s, e) => OpenWindow(""));
+            var open = new ToolStripMenuItem("Open UTSUSHI", null, (s, e) => OpenWindow(""));
             open.Font = new Font(open.Font, FontStyle.Bold);
             menu.Items.Add(open);
+            menu.Items.Add(new ToolStripMenuItem("Open the space on the headset", null, (s, e) => ThreadPool.QueueUserWorkItem(_ => LaunchSpace())));
             menu.Items.Add(new ToolStripSeparator());
             autoItem = new ToolStripMenuItem("Start with Windows", null, (s, e) => ToggleAutostart());
             menu.Items.Add(autoItem);
@@ -337,7 +338,7 @@ namespace QuestMirror
             };
             icon.BalloonTipClicked += (s, e) => OpenWindow("");
 
-            host.Failed += msg => ui.BeginInvoke((Action)(() => Notify("Quest Mirror", msg, ToolTipIcon.Warning)));
+            host.Failed += msg => ui.BeginInvoke((Action)(() => Notify("UTSUSHI", msg, ToolTipIcon.Warning)));
             ThreadPool.RegisterWaitForSingleObject(quit, (s, timedOut) => ui.BeginInvoke((Action)Quit), null, -1, true);
             SystemEvents.SessionEnding += (s, e) => host.Stop();
 
@@ -353,7 +354,7 @@ namespace QuestMirror
                     if (!File.Exists(welcomed))
                     {
                         // First run: the one prompt we can't skip is Windows' own firewall question.
-                        Notify("Quest Mirror is ready", "If Windows asks about network access, press Allow — that's how your Quest and TV reach this PC.", ToolTipIcon.Info);
+                        Notify("UTSUSHI is ready", "If Windows asks about network access, press Allow — that's how your Quest and TV reach this PC.", ToolTipIcon.Info);
                         try
                         {
                             File.WriteAllText(welcomed, DateTime.Now.ToString("o"));
@@ -362,7 +363,7 @@ namespace QuestMirror
                         {
                         }
                     }
-                    else if (background) Notify("Quest Mirror is running", "It's in the tray. Plug in your Quest or open Quest Mirror in the headset.", ToolTipIcon.None);
+                    else if (background) Notify("UTSUSHI is running", "It's in the tray. Plug in your Quest or open UTSUSHI in the headset.", ToolTipIcon.None);
                 }));
             });
             poll.Tick += (s, e) => Poll();
@@ -374,6 +375,27 @@ namespace QuestMirror
             ThreadPool.QueueUserWorkItem(_ => AppWindow.Show(hash));
         }
 
+        /// <summary>UTSUSHI Space: the host starts the headset browser on http://localhost/space/ (over the cable).</summary>
+        void LaunchSpace()
+        {
+            string msg;
+            try
+            {
+                var req = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + Paths.Port + "/api/space/launch");
+                req.Method = "POST";
+                req.ContentType = "application/json";
+                req.Timeout = 8000;
+                var body = Encoding.UTF8.GetBytes("{}");
+                using (var st = req.GetRequestStream()) st.Write(body, 0, body.Length);
+                using (req.GetResponse()) msg = "Opening in the headset browser. Put the headset on and press Enter space.";
+            }
+            catch (WebException e)
+            {
+                msg = e.Response != null ? "Plug the Quest in with its cable first, then try again." : "The host is not answering yet.";
+            }
+            ui.BeginInvoke((Action)(() => Notify("UTSUSHI Space", msg, ToolTipIcon.None)));
+        }
+
         void ToggleAutostart()
         {
             try
@@ -382,14 +404,14 @@ namespace QuestMirror
             }
             catch (Exception e)
             {
-                Notify("Quest Mirror", "Could not change that: " + e.Message, ToolTipIcon.Warning);
+                Notify("UTSUSHI", "Could not change that: " + e.Message, ToolTipIcon.Warning);
             }
         }
 
         void ShowLog()
         {
             if (File.Exists(Paths.Log)) Process.Start("notepad.exe", "\"" + Paths.Log + "\"");
-            else Notify("Quest Mirror", host.External ? "Another Quest Mirror window is running the host on this PC." : "No log yet.", ToolTipIcon.None);
+            else Notify("UTSUSHI", host.External ? "Another UTSUSHI window is running the host on this PC." : "No log yet.", ToolTipIcon.None);
         }
 
         void Quit()
@@ -451,9 +473,9 @@ namespace QuestMirror
         void Apply(Dictionary<string, object> s)
         {
             string tip;
-            if (s == null) tip = "Quest Mirror — starting…";
-            else if (!B(s, "device", "connected")) tip = B(s, "device", "unauthorized") ? "Quest Mirror — press Allow in the headset" : "Quest Mirror — waiting for your Quest";
-            else tip = "Quest Mirror — Quest connected" + (B(s, "pc", "appLinked") ? " · linked" : "");
+            if (s == null) tip = "UTSUSHI — starting…";
+            else if (!B(s, "device", "connected")) tip = B(s, "device", "unauthorized") ? "UTSUSHI — press Allow in the headset" : "UTSUSHI — waiting for your Quest";
+            else tip = "UTSUSHI — Quest connected" + (B(s, "pc", "appLinked") ? " · linked" : "");
             icon.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;
 
             if (s != null && last != null)
@@ -462,9 +484,9 @@ namespace QuestMirror
                 if (B(s, "device", "unauthorized") && !B(last, "device", "unauthorized"))
                     Notify("Put your Quest on", "Press “Allow” on the USB debugging prompt (tick “Always allow”).", ToolTipIcon.Info);
                 if (B(s, "device", "connected") && !B(last, "device", "connected"))
-                    Notify("Quest connected", B(s, "device", "appInstalled") ? "Ready. Open Quest Mirror in the headset." : "Installing the Quest app on it…", ToolTipIcon.None);
+                    Notify("Quest connected", B(s, "device", "appInstalled") ? "Ready. Open UTSUSHI in the headset." : "Installing the Quest app on it…", ToolTipIcon.None);
                 if (B(s, "device", "appInstalled") && !B(last, "device", "appInstalled"))
-                    Notify("Quest app installed", "In the headset: Library → Unknown Sources → Quest Mirror, then look at this PC's screen.", ToolTipIcon.Info);
+                    Notify("Quest app installed", "In the headset: Library → Unknown Sources → UTSUSHI, then look at this PC's screen.", ToolTipIcon.Info);
                 if (B(s, "pc", "appLinked") && !B(last, "pc", "appLinked"))
                     Notify("Linked ✓", "Your Quest can show this PC now.", ToolTipIcon.None);
             }
@@ -477,8 +499,8 @@ namespace QuestMirror
         public static int Run()
         {
             bool quiet = Array.IndexOf(Environment.GetCommandLineArgs(), "--quiet") >= 0;
-            if (!quiet && MessageBox.Show("Remove Quest Mirror from this PC?\n\nThe app on your Quest stays; your settings are kept in case you install it again.",
-                    "Quest Mirror", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return 1;
+            if (!quiet && MessageBox.Show("Remove UTSUSHI from this PC?\n\nThe app on your Quest stays; your settings are kept in case you install it again.",
+                    "UTSUSHI", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return 1;
             Program.SignalQuit();
             Thread.Sleep(1500);
             Native.KillProcessesUnder(Paths.AppDir);
@@ -493,7 +515,7 @@ namespace QuestMirror
             {
             }
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--quiet") < 0)
-                MessageBox.Show("Quest Mirror was removed.", "Quest Mirror", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("UTSUSHI was removed.", "UTSUSHI", MessageBoxButtons.OK, MessageBoxIcon.Information);
             // This .exe lives in the folder being removed: let cmd delete it once we've exited.
             Process.Start(new ProcessStartInfo("cmd.exe", "/c ping 127.0.0.1 -n 3 >nul & rmdir /s /q \"" + Paths.AppDir + "\"")
             {

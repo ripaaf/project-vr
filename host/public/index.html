@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#E7E6E1">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Quest Mirror</title>
+  <title>UTSUSHI</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -71,8 +71,8 @@
 
   <header id="topbar" class="topbar">
     <div class="brand">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 3h9v3H6v20h6v3H3zM29 3h-9v3h6v20h-6v3h9z"/><rect x="11" y="12" width="4" height="8"/><rect x="17" y="12" width="4" height="8" class="sig"/></svg>
-      <span class="word">QUEST<b>/</b>MIRROR</span>
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M21.6 6.4a12 12 0 1 0 5.2 11" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><rect x="20" y="20" width="8" height="8" class="sig"/></svg>
+      <span class="word">UTSUSHI<b>/</b>写し</span>
     </div>
     <span id="statusPill" class="pill"><i></i><span>…</span></span>
     <span id="metaLine" class="mono dim meta"></span>
@@ -82,6 +82,10 @@
     </button>
     <button class="icon-btn" id="btnFull" title="Fullscreen (F)" aria-label="Fullscreen">
       <svg viewBox="0 0 24 24"><path d="M3 9V3h6v2H5v4zm12-6h6v6h-2V5h-4zM3 15h2v4h4v2H3zm16 0h2v6h-6v-2h4z"/></svg>
+    </button>
+    <button class="icon-btn labeled owner-only" id="btnSpace" title="Open UTSUSHI Space on the headset" aria-label="Open UTSUSHI Space on the headset">
+      <svg viewBox="0 0 24 24"><path d="M15.6 4.6a8.6 8.6 0 1 0 4 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><rect x="15" y="15" width="5" height="5"/></svg>
+      <span class="lbl">SPACE</span>
     </button>
     <button class="icon-btn labeled" id="btnControl" title="Remote control" aria-label="Remote control">
       <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 2 3 3H9zm0 12-3-3h6zM6 12l3-3v6zm12 0-3 3V9zm-6-1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>
@@ -108,7 +112,7 @@
       <button role="tab" data-tab="type"><i>03</i>TYPE</button>
       <button role="tab" data-tab="panels"><i>04</i>PANELS</button>
     </div>
-    <div id="controlBlocked" class="notice" hidden><span class="hatch"></span>Remote control is switched off on the headset. Turn on <b>Let viewers control</b> in the Quest Mirror app.</div>
+    <div id="controlBlocked" class="notice" hidden><span class="hatch"></span>Remote control is switched off on the headset. Turn on <b>Let viewers control</b> in the UTSUSHI app.</div>
 
     <div class="tab-body" data-body="remote">
       <div class="dial">
@@ -198,7 +202,7 @@
       <div class="acc owner-only" id="accLink">
         <button class="acc-head" type="button"><span>Link the Quest app</span><small id="accLinkSum"></small><b class="chev">▾</b></button>
         <div class="acc-body"><div class="inner">
-          <p class="hint">In the headset open <b>Quest Mirror</b> and look at this code. Or tap your PC there and press <b>Allow</b> here.</p>
+          <p class="hint">In the headset open <b>UTSUSHI</b> and look at this code. Or tap your PC there and press <b>Allow</b> here.</p>
           <button class="btn primary" id="bigCodeBtn" type="button">◎ Show the big code</button>
           <div class="pair-qr" id="pairQr"></div>
           <div class="pair-code" id="pairCode">––––––</div>
@@ -259,7 +263,7 @@
           <ol id="linkSteps" class="checklist"></ol>
           <div id="setupActions" class="stack"></div>
           <label class="switch"><input type="checkbox" id="autoWireless"><i></i><span>Go wireless automatically when the cable is plugged in</span></label>
-          <label class="switch" id="autostartRow"><input type="checkbox" id="autostart"><i></i><span>Start Quest Mirror with Windows</span></label>
+          <label class="switch" id="autostartRow"><input type="checkbox" id="autostart"><i></i><span>Start UTSUSHI with Windows</span></label>
         </div></div>
       </div>
 
@@ -310,7 +314,7 @@
       <div class="lo-qr" id="loQr"><i class="sweep"></i><b class="c tl"></b><b class="c tr"></b><b class="c bl"></b><b class="c br"></b></div>
       <div class="lo-text">
         <h1 id="loTitle">Look at this with your Quest</h1>
-        <p id="loText">In the headset open <b>Quest Mirror</b> and look at this screen. Linking happens by itself.</p>
+        <p id="loText">In the headset open <b>UTSUSHI</b> and look at this screen. Linking happens by itself.</p>
         <div class="lo-done" id="loDone" hidden><span>✓</span></div>
         <p class="mono dim" id="loCode"></p>
       </div>

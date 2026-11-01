@@ -69,7 +69,7 @@ final class CameraScanner {
     }
 
     /** Prefer Meta's left passthrough camera (camera_source 0, position 0). */
-    private static String pickCamera(CameraManager cm) throws CameraAccessException {
+    static String pickCamera(CameraManager cm) throws CameraAccessException {
         CameraCharacteristics.Key<Byte> source = new CameraCharacteristics.Key<>("com.meta.extra_metadata.camera_source", Byte.class);
         CameraCharacteristics.Key<Byte> position = new CameraCharacteristics.Key<>("com.meta.extra_metadata.position", Byte.class);
         String first = null, passthrough = null;
@@ -90,7 +90,7 @@ final class CameraScanner {
         return passthrough != null ? passthrough : first;
     }
 
-    private static Size pickSize(CameraManager cm, String id) throws CameraAccessException {
+    static Size pickSize(CameraManager cm, String id) throws CameraAccessException {
         StreamConfigurationMap map = cm.getCameraCharacteristics(id).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         Size best = new Size(1280, 960);
         if (map == null) return best;

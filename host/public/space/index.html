@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>UTSUSHI · space</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230e0e0f'/%3E%3Cpath d='M47 18a20 20 0 1 0 5 15' fill='none' stroke='%23ece5d6' stroke-width='6' stroke-linecap='round'/%3E%3Crect x='42' y='40' width='12' height='12' fill='%23e2472c'/%3E%3C/svg%3E" />
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<style>
+  /* The gate is a page of the UTSUSHI app: same canvas, ink, signal red, condensed type and
+     mono kickers, in the app's own theme (dark, or paper when the app is light). */
+  :root {
+    --bg: #0c0c0e; --bg2: #141417; --bg3: #1f1f23;
+    --ink: #ecebe6; --ink2: #b6b5b0; --ink3: #6f6f74;
+    --line: rgba(236, 235, 230, 0.12); --line2: rgba(236, 235, 230, 0.24);
+    --signal: #ff4a2e; --onSignal: #ffffff; --gold: #d0aa5f; --seal: #e2472c; --ok: #8fd3a8; --warn: #f2c14e;
+    --cond: "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --cut: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+  body.paper {
+    --bg: #e7e6e1; --bg2: #f3f2ed; --bg3: #dad9d3;
+    --ink: #0f1012; --ink2: #45474d; --ink3: #8a8b90;
+    --line: rgba(15, 16, 18, 0.12); --line2: rgba(15, 16, 18, 0.24);
+    --signal: #ff3b1f; --ok: #2f8f5b; --warn: #b07a00;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--cond); -webkit-font-smoothing: antialiased; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; }
+  #gate { position: fixed; inset: 0; overflow: auto; background: var(--bg); transition: opacity 0.5s ease, visibility 0.5s; }
+  body.inside #gate { opacity: 0; visibility: hidden; pointer-events: none; }
+  body.previewing #gate { display: none; }
+
+  header { display: flex; align-items: center; gap: 14px; padding: 22px clamp(16px, 4vw, 44px); border-bottom: 1px solid var(--line); }
+  .word { font-weight: 700; font-size: 22px; letter-spacing: 0.22em; }
+  .word i { font-style: normal; color: var(--signal); }
+  .crumb { font-family: var(--mono); font-size: 12px; color: var(--ink3); letter-spacing: 0.08em; }
+  .spacer { flex: 1; }
+  .clock { font-family: var(--mono); font-size: 14px; color: var(--ink2); }
+
+  main { max-width: 1000px; margin: 0 auto; padding: clamp(24px, 5vw, 56px) clamp(16px, 4vw, 44px) 40px; }
+  .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; color: var(--signal); text-transform: uppercase; }
+  h1 { font-size: clamp(44px, 7vw, 76px); line-height: 0.95; margin: 10px 0 14px; font-weight: 700; letter-spacing: -0.01em; }
+  .lede { font-size: 19px; line-height: 1.5; color: var(--ink2); max-width: 640px; margin: 0 0 28px; }
+
+  /* cards: the app's rows */
+  .card { appearance: none; display: flex; align-items: center; gap: 22px; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--bg2); color: var(--ink); clip-path: var(--cut); padding: 22px 26px; cursor: pointer; font-family: var(--cond); transition: background 0.15s, border-color 0.15s; }
+  .card:hover { background: var(--bg3); border-color: var(--line2); }
+  .card:active { transform: translateY(1px); }
+  .card[hidden] { display: none; }
+  .card .words { flex: 1; min-width: 0; }
+  .card .k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--signal); text-transform: uppercase; }
+  .card .t { display: block; font-size: 30px; font-weight: 700; margin: 4px 0 6px; }
+  .card .d { display: block; font-size: 16px; line-height: 1.45; color: var(--ink2); }
+  .card .side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--ink3); text-transform: uppercase; }
+  .card .side b { font-size: 28px; color: var(--ink); font-weight: 700; }
+  .card.primary { border-color: var(--line2); }
+  #enso { width: 72px; height: 72px; flex: none; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .pair .card { padding: 18px 22px; }
+  .pair .card .t { font-size: 22px; }
+  @media (max-width: 620px) { .pair { grid-template-columns: 1fr; } .card { gap: 14px; } }
+
+  /* status: mono rows with a dot */
+  .status { margin-top: 26px; border-top: 1px solid var(--line); }
+  .chip { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--ink3); text-transform: uppercase; }
+  .chip i { width: 8px; height: 8px; background: var(--ink3); flex: none; }
+  .chip b { margin-left: auto; font-weight: 400; color: var(--ink2); text-transform: none; letter-spacing: 0.02em; font-size: 13px; text-align: right; }
+  .chip.ok i { background: var(--ok); }
+  .chip.warn i { background: var(--warn); }
+  .chip.bad i { background: var(--signal); }
+  .note { min-height: 22px; margin-top: 14px; font-size: 16px; color: var(--ink2); }
+  .note.err { color: var(--signal); }
+  .gests { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px 18px; font-family: var(--mono); font-size: 12px; color: var(--ink3); }
+  .gests b { color: var(--ink2); font-weight: 400; }
+
+  /* opened from the app: the space itself, live behind one prompt (your apps float by, the night
+     garden behind them); a pinch anywhere steps in. Browsers start an immersive space only from a
+     tap on the page, so this page is that one tap, made to feel like UTSUSHI's own window. */
+  #tap { display: none; }
+  body.tap #gate { display: none; }
+  body.tap #tap { display: flex; position: fixed; inset: 0; z-index: 5; align-items: center; justify-content: center; flex-direction: column; cursor: pointer;
+    background: radial-gradient(ellipse at 50% 45%, transparent 0 30%, rgba(8, 8, 9, 0.62) 100%); }
+  body.paper.tap #tap { background: radial-gradient(ellipse at 50% 45%, transparent 0 30%, rgba(231, 230, 225, 0.66) 100%); }
+  body.inside #tap { display: none; }
+  #tap .prompt { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 26px 40px 30px; margin-top: -8vh;
+    background: color-mix(in srgb, var(--bg) 84%, transparent); border: 1px solid var(--line2); clip-path: var(--cut);
+    transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.45s ease; }
+  #tap canvas { width: 132px; height: 132px; animation: breathe 4.2s ease-in-out infinite; }
+  #tap .k { font-family: var(--mono); font-size: 12px; letter-spacing: 0.18em; color: var(--signal); text-transform: uppercase; }
+  #tap .t { font-size: 42px; font-weight: 700; letter-spacing: 0.01em; }
+  #tap .s { font-size: 18px; color: var(--ink2); }
+  #tap .foot { position: fixed; bottom: 22px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; color: var(--ink3); text-transform: uppercase; }
+  body.going #tap .prompt { transform: scale(1.12); opacity: 0; }
+  @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+
+  /* preview controls (desktop) */
+  #hud { position: fixed; left: 18px; bottom: 18px; display: none; gap: 14px; align-items: flex-start; flex-direction: column; font-family: var(--mono); font-size: 12px; color: var(--ink2); background: rgba(12, 12, 14, 0.86); border: 1px solid var(--line2); padding: 14px 16px; clip-path: var(--cut); max-width: min(560px, calc(100vw - 36px)); }
+  body.previewing #hud { display: flex; }
+  #hud .row { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  #hud kbd { font-family: var(--mono); font-size: 11px; color: var(--ink); border: 1px solid var(--line2); padding: 1px 5px; margin-right: 4px; }
+  #hud .t { color: var(--signal); letter-spacing: 0.16em; }
+  #hud button { appearance: none; border: 1px solid var(--line2); background: transparent; color: var(--ink); font: 12px var(--mono); padding: 6px 10px; cursor: pointer; }
+  #hud button:hover { border-color: var(--signal); color: var(--signal); }
+  @media (prefers-reduced-motion: reduce) { #gate { transition: none; } #tap canvas { animation: none; } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div id="tap" role="button" aria-label="Enter the space">
+  <div class="prompt">
+    <canvas id="tapEnso" width="320" height="320" aria-hidden="true"></canvas>
+    <div class="k">UTSUSHI · 写し</div>
+    <div class="t">Step into your space</div>
+    <div class="s">Pinch anywhere</div>
+  </div>
+  <div class="foot">your room · your hands · your apps</div>
+</div>
+
+<div id="gate">
+  <header>
+    <div class="word">UTSUSHI<i>.</i></div>
+    <div class="crumb">写し / space</div>
+    <div class="spacer"></div>
+    <div class="clock" id="clock">--:--</div>
+  </header>
+
+  <main>
+    <div class="kicker">C // Immersive · 写し</div>
+    <h1>UTSUSHI Space</h1>
+    <p class="lede">Your windows, notes, models and scans around you, in your room or in the quiet garden. Hands first; controllers work too.</p>
+
+    <button class="card primary" id="enter" hidden>
+      <canvas id="enso" width="144" height="144" aria-hidden="true"></canvas>
+      <span class="words">
+        <span class="k">Enter</span>
+        <span class="t">Enter the space</span>
+        <span class="d">Passthrough and your hands. The first visit has a short guide.</span>
+      </span>
+      <span class="side"><b>→</b>Immersive</span>
+    </button>
+
+    <div class="pair">
+      <button class="card" id="launch" hidden>
+        <span class="words"><span class="k">A // PC → Quest</span><span class="t">Open on the headset</span><span class="d">Starts the headset's browser on this page.</span></span>
+      </button>
+      <button class="card" id="preview">
+        <span class="words"><span class="k">B // This screen</span><span class="t">Preview here</span><span class="d"><small>Mouse and keyboard, no headset.</small></span></span>
+      </button>
+    </div>
+
+    <div class="note" id="note" role="status"></div>
+
+    <div class="status">
+      <div class="chip" id="cHost"><i></i>PC<b>…</b></div>
+      <div class="chip" id="cQuest"><i></i>Headset<b>…</b></div>
+      <div class="chip" id="cXR"><i></i>This browser<b>…</b></div>
+      <div class="chip" id="cBoard"><i></i>Board<b>…</b></div>
+    </div>
+
+    <div class="gests">
+      <div><b>Palm up</b> · quick ring</div>
+      <div><b>Two L hands</b> · photo frame</div>
+      <div><b>Both palms up</b> · bring windows back</div>
+      <div><b>Swipe</b> · turn windows around you</div>
+      <div><b>Push</b> · send a window away</div>
+      <div><b>Touch or pinch</b> · press anything</div>
+    </div>
+  </main>
+</div>
+
+<div id="hud" aria-label="preview controls">
+  <div class="row"><span class="t">PREVIEW</span><span>drag empty space to look · click to press · wheel scrolls</span></div>
+  <div class="row">
+    <span><kbd>Alt 1</kbd>launcher</span><span><kbd>Alt 2</kbd>room/void</span><span><kbd>Alt 3</kbd>hacker</span><span><kbd>Alt 4</kbd>thumbs up</span>
+    <span><kbd>Alt 5</kbd>photo</span><span><kbd>Alt 6</kbd>status</span><span><kbd>Alt 7</kbd>camera</span><span><kbd>Alt 8</kbd>push</span><span><kbd>Alt 9</kbd>swipe</span><span><kbd>Alt 0</kbd>center</span>
+  </div>
+  <div class="row"><button id="leave">leave · Esc</button></div>
+</div>
+
+<script type="module">
+  import { enso, seal } from './js/theme.js';
+  import { api } from './js/api.js';
+  import './js/main.js';
+
+  const U = window.UTSUSHI;
+  const $ = (id) => document.getElementById(id);
+  // Quest Browser opens a new tab each time the app opens the space; the newest one tells the
+  // older ones to empty themselves (they cannot close), so old tabs stop using memory
+  try {
+    const bc = new BroadcastChannel('utsushi-space');
+    bc.onmessage = (e) => {
+      if (e.data === 'newer' && !U.world.xrActive) location.replace('about:blank');
+    };
+    bc.postMessage('newer');
+  } catch {}
+  const params = new URLSearchParams(location.search);
+  // the app passes its theme (and asks for one-tap entry when it opened this page)
+  if (params.get('theme') === 'paper') document.body.classList.add('paper');
+  const fromApp = params.get('from') === 'app';
+  const inkColour = () => getComputedStyle(document.body).getPropertyValue('--ink').trim() || '#ecebe6';
+  const note = (msg, err) => {
+    $('note').textContent = msg || '';
+    $('note').classList.toggle('err', !!err);
+  };
+  const chip = (id, cls, value) => {
+    const el = $(id);
+    el.className = `chip ${cls || ''}`;
+    el.querySelector('b').textContent = value;
+  };
+
+  // ---- the ensō (the app's mark) paints itself
+  const t0 = performance.now();
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function paint() {
+    const k = still ? 1 : Math.min(1, (performance.now() - t0) / 1400);
+    for (const [id, r, w] of [['enso', 52, 11], ['tapEnso', 118, 22]]) {
+      const cv = $(id);
+      const g = cv.getContext('2d');
+      const c = cv.width / 2;
+      g.clearRect(0, 0, cv.width, cv.height);
+      enso(g, c, c, r, { seed: 9, width: w, color: inkColour(), progress: k });
+      if (k >= 1) seal(g, c + r * 0.62, c + r * 0.66, r * 0.32, '映');
+    }
+    if (k < 1) requestAnimationFrame(paint);
+  }
+  document.fonts.ready.then(paint);
+
+  // ---- clock
+  const tick = () => {
+    const d = new Date();
+    $('clock').textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+  tick();
+  setInterval(tick, 10000);
+
+  // ---- entering
+  async function enter() {
+    note('');
+    document.body.classList.add('going');
+    try {
+      await U.enterXR();
+      document.body.classList.remove('tap');
+    } catch (e) {
+      document.body.classList.remove('tap', 'going');
+      note(e.message || String(e), true);
+    }
+  }
+
+  const kind = await U.xrKind;
+  if (kind) {
+    chip('cXR', 'ok', kind === 'ar' ? 'passthrough ready' : 'VR ready');
+    $('enter').hidden = false;
+    $('preview').querySelector('small').textContent = 'A flat preview on this screen.';
+    // opened by the UTSUSHI app: one tap anywhere and you are in (browsers need that one tap)
+    if (fromApp) {
+      document.body.classList.add('tap');
+      U.showcase(true); // the space itself, live behind the prompt
+      $('tap').addEventListener('click', enter);
+      // opened by the app: try to go straight in (the browser may count the app's launch as your
+      // go-ahead); if it wants a tap, the whole page is the place to tap
+      U.enterXR().then(
+        () => {
+          document.body.classList.remove('tap');
+          try { sessionStorage.setItem('autoEnter', 'yes'); } catch {}
+        },
+        (e) => {
+          try { sessionStorage.setItem('autoEnter', `no: ${e.name}`); } catch {}
+        }
+      );
+    }
+    // a session the browser grants on its own (coming from another immersive page)
+    if (navigator.xr && navigator.xr.addEventListener) navigator.xr.addEventListener('sessiongranted', enter);
+  } else chip('cXR', 'warn', 'flat screen (preview)');
+
+  async function poll() {
+    try {
+      const s = await api('/api/space/stats');
+      if (s.standalone) {
+        // served by the Quest app itself
+        const q = s.quest || {};
+        chip('cHost', 'warn', 'not connected · the space runs on the Quest');
+        chip('cQuest', 'ok', `on its own${q.battery != null ? ` · ${q.battery}%` : ''}`);
+        chip('cBoard', '', 'needs the PC');
+        $('launch').hidden = true;
+        return;
+      }
+      chip('cHost', 'ok', `${s.pc.name} · cpu ${s.pc.cpu}%`);
+      const q = s.quest || {};
+      if (q.connected) chip('cQuest', 'ok', `${q.transport === 'wifi' ? 'Wi-Fi' : 'cable'}${q.battery != null ? ` · ${q.battery}%` : ''}`);
+      else if (q.unauthorized) chip('cQuest', 'bad', 'allow USB debugging');
+      else chip('cQuest', 'warn', 'not connected');
+      chip('cBoard', s.serial && s.serial.open ? 'ok' : '', s.serial && s.serial.open ? s.serial.port : 'none · optional');
+      $('launch').hidden = !!kind || !q.connected;
+    } catch (e) {
+      chip('cHost', 'bad', e.status === 403 ? 'open from this PC or the headset' : 'offline');
+      chip('cQuest', '', '—');
+      chip('cBoard', '', '—');
+      $('launch').hidden = true;
+    }
+  }
+  poll();
+  setInterval(() => !document.body.classList.contains('inside') && poll(), 4000);
+
+  // ---- actions
+  $('enter').addEventListener('click', enter);
+  $('preview').addEventListener('click', () => {
+    note('');
+    U.startPreview();
+  });
+  $('leave').addEventListener('click', () => U.stopPreview());
+  $('launch').addEventListener('click', async () => {
+    $('launch').disabled = true;
+    try {
+      await api('/api/space/launch', {});
+      note('Opening in the headset browser. Put the headset on and tap anywhere.');
+    } catch (e) {
+      note(e.message, true);
+    }
+    setTimeout(() => ($('launch').disabled = false), 4000);
+  });
+</script>
+</body>
+</html>

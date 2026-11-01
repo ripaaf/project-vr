@@ -7,7 +7,7 @@ using System.IO;
 
 namespace QuestMirror
 {
-    /// <summary>Colours and the [ :] logo, drawn in code so the app needs no image files.</summary>
+    /// <summary>Colours and the UTSUSHI mark (an open ensō with a red seal), drawn in code so the app needs no image files.</summary>
     static class Brand
     {
         public const string Version = "1.0.0";
@@ -17,9 +17,6 @@ namespace QuestMirror
         public static readonly Color Paper = Color.FromArgb(231, 230, 225);
         public static readonly Color Paper2 = Color.FromArgb(243, 242, 237);
         public static readonly Color Signal = Color.FromArgb(255, 59, 31);
-
-        // The logo on a 32-unit grid: two brackets and two bars, the right one in signal red.
-        static readonly float[][] LeftBracket = { new float[] { 3, 3 }, new float[] { 12, 3 }, new float[] { 12, 6 }, new float[] { 6, 6 }, new float[] { 6, 26 }, new float[] { 12, 26 }, new float[] { 12, 29 }, new float[] { 3, 29 } };
 
         /// <summary>The logo on an ink tile with cut corners: readable on light and dark taskbars.</summary>
         public static Bitmap Logo(int n)
@@ -36,24 +33,13 @@ namespace QuestMirror
                     tile.AddPolygon(new[] { new PointF(k, 0), new PointF(n, 0), new PointF(n, n - k), new PointF(n - k, n), new PointF(0, n), new PointF(0, k) });
                     using (var b = new SolidBrush(Ink)) g.FillPath(b, tile);
                 }
-                float s = n * 0.74f / 32f, o = (n - 32 * s) / 2f;
-                using (var paper = new SolidBrush(Paper2))
-                using (var signal = new SolidBrush(Signal))
-                {
-                    g.FillPolygon(paper, Shape(LeftBracket, s, o, false));
-                    g.FillPolygon(paper, Shape(LeftBracket, s, o, true));
-                    g.FillRectangle(paper, o + 11 * s, o + 12 * s, 4 * s, 8 * s);
-                    g.FillRectangle(signal, o + 17 * s, o + 12 * s, 4 * s, 8 * s);
-                }
+                // an open brush circle (300°) and the seal in its gap
+                float r = n * 0.27f, c = n * 0.47f;
+                using (var pen = new Pen(Paper2, Math.Max(1.5f, n * 0.09f)) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+                    g.DrawArc(pen, c - r, c - r, 2 * r, 2 * r, 235, 300);
+                using (var signal = new SolidBrush(Signal)) g.FillRectangle(signal, n * 0.6f, n * 0.6f, n * 0.18f, n * 0.18f);
             }
             return bmp;
-        }
-
-        static PointF[] Shape(float[][] pts, float s, float o, bool mirror)
-        {
-            var list = new List<PointF>();
-            foreach (var p in pts) list.Add(new PointF(o + (mirror ? 32 - p[0] : p[0]) * s, o + p[1] * s));
-            return list.ToArray();
         }
 
         public static Icon MakeIcon(int n)

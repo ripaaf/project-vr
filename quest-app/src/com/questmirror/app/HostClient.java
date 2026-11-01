@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Finds and talks to the Quest Mirror host on the PC. Tries the ADB tunnel (127.0.0.1) and
+ * Finds and talks to the UTSUSHI host on the PC. Tries the ADB tunnel (127.0.0.1) and
  * the PC's Wi-Fi address (remembered, or announced by the PC over UDP broadcast).
  */
 final class HostClient {
@@ -118,9 +118,11 @@ final class HostClient {
                 JSONObject s = request(b, "GET", "/api/status", null, 1500);
                 base = b;
                 hostName = s.optString("hostName", hostName);
-                // Over the ADB tunnel we're trusted: fetch the pairing token automatically
-                // (unless the user unlinked on purpose).
-                if (b.equals(LOCAL) && token() == null && autoLinkAllowed()) {
+                // Over the ADB tunnel we're trusted: fetch the pairing token automatically (unless the
+                // user unlinked on purpose — then the PC no longer lists a link either).
+                JSONObject pcs = s.optJSONObject("pc");
+                boolean pcStillLinked = pcs != null && pcs.optBoolean("appLinked");
+                if (b.equals(LOCAL) && token() == null && (autoLinkAllowed() || pcStillLinked)) {
                     try {
                         JSONObject t = request(b, "GET", "/api/pc/token", null, 3000);
                         saveToken(t.getString("token"), t.optString("hostName"));
@@ -248,6 +250,16 @@ final class HostClient {
         base = b;
         if (!b.equals(LOCAL)) saveLanBase(b);
         return r;
+    }
+
+    /** Our key was refused but the PC still lists the link: over the cable we are trusted, so take a fresh one. */
+    void relinkOverCable() {
+        try {
+            JSONObject t = request(LOCAL, "GET", "/api/pc/token", null, 3000);
+            saveToken(t.getString("token"), t.optString("hostName"));
+        } catch (Exception ignored) {
+            // no cable right now: keep the old key and try again on the next poll
+        }
     }
 
     /** Forget the paired PC. Stays unlinked (no automatic re-link over the cable) until the user links again. */

@@ -1,4 +1,4 @@
-/* Quest Mirror — "technical paper" HUD. Paper/ink/signal-red, cut corners, mono data labels. */
+/* UTSUSHI — "technical paper" HUD. Paper/ink/signal-red, cut corners, mono data labels. */
 :root,
 :root[data-theme="paper"] {
   --bg: #e7e6e1;
@@ -148,7 +148,7 @@ body.idle .hud { opacity: 0; }
 body.idle .topbar { transform: translateY(-6px); opacity: 0; }
 body.idle { cursor: none; }
 .brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-.brand svg { width: 26px; height: 26px; fill: var(--ink); }
+.brand svg { width: 26px; height: 26px; fill: var(--ink); color: var(--ink); }
 .brand svg .sig { fill: var(--signal); }
 .word { font: 700 18px/1 var(--f-ui); letter-spacing: .12em; }
 .word b { color: var(--signal); margin: 0 1px; }
